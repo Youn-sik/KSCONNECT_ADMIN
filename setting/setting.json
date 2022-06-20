@@ -1,0 +1,16 @@
+{
+    "mysql": {
+        "database": "Service_Platform",
+        "user": "kool",
+        "password": "master",
+        "host": "172.16.38.157",
+        "port": "3306"
+    },
+    "mongodb": {
+        "database": "Admin_Service",
+        "user": "kool",
+        "password": "master",
+        "host": "172.16.38.157",
+        "port": "27017"
+    }
+}
