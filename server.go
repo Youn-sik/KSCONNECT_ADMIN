@@ -78,6 +78,15 @@ func setupRouter() *gin.Engine {
 	user_service.GET("/user_list", func(c *gin.Context) {
 		user_account.UserList(c)
 	})
+	user_service.POST("/user_create", func(c *gin.Context) {
+		user_account.UserCreate(c)
+	})
+	user_service.POST("/user_update", func(c *gin.Context) {
+		user_account.UserUpdate(c)
+	})
+	user_service.POST("/user_delete", func(c *gin.Context) {
+		user_account.UserDelete(c)
+	})
 
 	return router
 }
