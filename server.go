@@ -4,9 +4,11 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b_account"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/device"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/station"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/user"
+	"github.com/Youn-sik/KSCONNECT_ADMIN/router/user_account"
 
 	"github.com/gin-gonic/gin"
 )
@@ -53,6 +55,7 @@ func setupRouter() *gin.Engine {
 	btb_service.POST("/charge_station_delete", func(c *gin.Context) {
 		station.StationDelete(c)
 	})
+
 	btb_service.GET("/charge_device_list", func(c *gin.Context) {
 		device.DeviceList(c)
 	})
@@ -64,6 +67,16 @@ func setupRouter() *gin.Engine {
 	})
 	btb_service.POST("/charge_device_delete", func(c *gin.Context) {
 		device.DeviceDelete(c)
+	})
+
+	btb_service.GET("/user_list", func(c *gin.Context) {
+		b2b_account.UserList(c)
+	})
+
+	user_service := router.Group("/user_service")
+	user_service.Use(authenticateMiddleware)
+	user_service.GET("/user_list", func(c *gin.Context) {
+		user_account.UserList(c)
 	})
 
 	return router
