@@ -64,7 +64,7 @@ func DeviceList(c *gin.Context) {
 
 		send_data.result = "true"
 		send_data.errStr = ""
-		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr, "charge_stations": resultJson})
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr, "charge_devices": resultJson})
 	}
 }
 
