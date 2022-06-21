@@ -1,3 +1,5 @@
+github.com/aliml92/nats-client v0.0.0-20220620073847-ff5d8993320f h1:zOc4NNIsXPy3uY2chSntfe4FiWIAC+ux/P/5iQyZH9I=
+github.com/aliml92/nats-client v0.0.0-20220620073847-ff5d8993320f/go.mod h1:jjJdkWz9/JuDwbPTX654FofDDIqfiPmWyKSf9sgMQH8=
 github.com/bdwilliams/go-jsonify v0.0.0-20141020182238-48749139e742 h1:PnDia1dKFSh7KDMoe9mRkSEFAIX3yN36Kc+zf/hLQVA=
 github.com/bdwilliams/go-jsonify v0.0.0-20141020182238-48749139e742/go.mod h1:0e8SCOOU1qUs2MqeJLnREiTtj09Rd0rkhnyzVVRCW58=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
