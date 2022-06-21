@@ -1,21 +1,14 @@
 package main
 
 import (
-	// "context"
-	// "encoding/json"
-	// "fmt"
 	"log"
 	"net/http"
 
-	// "net/http"
-
-	// "KSCONNECT_ADMIN/database"
-	// "KSCONNECT_ADMIN/setting"
+	"github.com/Youn-sik/KSCONNECT_ADMIN/router/device"
+	"github.com/Youn-sik/KSCONNECT_ADMIN/router/station"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/user"
 
 	"github.com/gin-gonic/gin"
-	// "go.mongodb.org/mongo-driver/bson"
-	// "go.mongodb.org/mongo-driver/mongo"
 )
 
 // func GetTestOne() {
@@ -140,9 +133,31 @@ func setupRouter() *gin.Engine {
 		user.Login(c)
 	})
 
-	router.Use(authenticateMiddleware)
-	router.GET("/", func(c *gin.Context) {
-		c.String(200, "pongggg")
+	btb_service := router.Group("/btb_service")
+	btb_service.Use(authenticateMiddleware)
+	btb_service.GET("/charge_station_list", func(c *gin.Context) {
+		station.StationList(c)
+	})
+	btb_service.POST("/charge_station_create", func(c *gin.Context) {
+		station.StationCreate(c)
+	})
+	btb_service.POST("/charge_station_update", func(c *gin.Context) {
+		station.StationUpdate(c)
+	})
+	btb_service.POST("/charge_station_delete", func(c *gin.Context) {
+		station.StationDelete(c)
+	})
+	btb_service.GET("/charge_device_list", func(c *gin.Context) {
+		device.DeviceList(c)
+	})
+	btb_service.POST("/charge_device_create", func(c *gin.Context) {
+		device.DeviceCreate(c)
+	})
+	btb_service.POST("/charge_device_update", func(c *gin.Context) {
+		device.DeviceUpdate(c)
+	})
+	btb_service.POST("/charge_device_delete", func(c *gin.Context) {
+		device.DeviceDelete(c)
 	})
 
 	return router

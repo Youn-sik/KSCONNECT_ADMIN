@@ -55,7 +55,8 @@ func TokenBuild(u User) string {
 	signedAuthToken, err := atoken.SignedString([]byte("cho"))
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return "false"
 	}
 
 	// log.Println(signedAuthToken)
@@ -69,7 +70,7 @@ func GetUserInfo() ([]string, error) {
 	rows, err := conn1.Query("select id, password, name from admin_user")
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	results := (jsonify.Jsonify(rows))
@@ -99,18 +100,20 @@ func TokenCheck(authToken string) bool {
 }
 
 func Login(c *gin.Context) {
-	reqData := ReqUser{}
-	err := c.Bind(&reqData)
-
-	user := User{}
 	var send_data struct {
 		result string
 		errStr string
 	}
+	reqData := ReqUser{}
+	err := c.Bind(&reqData)
+
+	user := User{}
 
 	if err != nil {
-		log.Fatal(err)
-		panic(err)
+		log.Println(err)
+		send_data.result = "false"
+		send_data.errStr = "body 데이터를 가져오는중 문제가 발생하였습니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	}
 
 	// log.Println(reqData)
@@ -119,7 +122,10 @@ func Login(c *gin.Context) {
 	rows, err := conn.Query("select uid, id, password, name, email, mobile from admin_user where id=?", reqData.Id)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		send_data.result = "false"
+		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	}
 
 	jsonRows := jsonify.Jsonify(rows)
@@ -138,23 +144,15 @@ func Login(c *gin.Context) {
 	} else {
 		token := TokenBuild(user)
 
-		send_data.result = "true"
-		send_data.errStr = ""
-
-		/*
-			key := func(token *jwt.Token) (interface{}, error) {
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					ErrUnexpectedSigningMethod := errors.New("unexpected signing method")
-					return nil, ErrUnexpectedSigningMethod
-				}
-				return []byte("cho"), nil
-			}
-
-			tok, _ := jwt.ParseWithClaims(token, claims, key)
-			log.Println(tok.Valid)
-		*/
-
-		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr, "token": token})
+		if token == "false" {
+			send_data.result = "false"
+			send_data.errStr = "토큰 생성 중 문제가 발생하였습니다."
+			c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		} else {
+			send_data.result = "true"
+			send_data.errStr = ""
+			c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr, "token": token})
+		}
 	}
 }
 
