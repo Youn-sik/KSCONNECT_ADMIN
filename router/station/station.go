@@ -62,17 +62,18 @@ func StationList(c *gin.Context) {
 
 	rows, err := conn1.Query("select * from charge_station")
 	if err != nil {
+		log.Println(err)
 		send_data.result = "false"
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+	} else {
+		resultJson := jsonify.Jsonify(rows)
+		log.Println(resultJson)
+
+		send_data.result = "true"
+		send_data.errStr = ""
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr, "charge_stations": resultJson})
 	}
-
-	resultJson := jsonify.Jsonify(rows)
-	log.Println(resultJson)
-
-	send_data.result = "true"
-	send_data.errStr = ""
-	c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr, "charge_stations": resultJson})
 }
 
 func StationCreate(c *gin.Context) {
@@ -82,6 +83,12 @@ func StationCreate(c *gin.Context) {
 	}
 	reqData := CreateReq{}
 	err := c.Bind(&reqData)
+	if err != nil {
+		log.Println(err)
+		send_data.result = "false"
+		send_data.errStr = "Body parsing 문제가 발생하였습니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+	}
 
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
@@ -111,6 +118,12 @@ func StationUpdate(c *gin.Context) {
 	}
 	reqData := UpdateReq{}
 	err := c.Bind(&reqData)
+	if err != nil {
+		log.Println(err)
+		send_data.result = "false"
+		send_data.errStr = "Body parsing 문제가 발생하였습니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+	}
 
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
@@ -140,6 +153,12 @@ func StationDelete(c *gin.Context) {
 	}
 	reqData := DeleteReq{}
 	err := c.Bind(&reqData)
+	if err != nil {
+		log.Println(err)
+		send_data.result = "false"
+		send_data.errStr = "Body parsing 문제가 발생하였습니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+	}
 
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
