@@ -78,7 +78,6 @@ type RequestReq struct {
 }
 
 type RequestSubmitReq struct {
-	// submit 이 가면 mysql 에서 데이터 지우고 mongo 에 또 저장하고
 	Request_id     int    `json:"request_id"`
 	Request_uid    int    `json:"request_uid"`
 	Company_id     int    `json:"company_id"`
@@ -369,8 +368,9 @@ func StationRequestSubmit(c *gin.Context) {
 
 			// 이후 resp["result"] 체크 후 정상 MongoDB 에 Logging / Mysql에 Delete
 			if respJson["result"] != "false" {
+				log.Println(respJson["errStr"])
 				send_data.result = "false"
-				send_data.errStr = "B2B Service 의 Response 가 올바르지 않습니다."
+				send_data.errStr = "B2B Service 의 Response 가 올바르지 않습니다. => " + respJson["errStr"]
 				c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 			} else {
 				// mysql delete from request_charge_staion where request_id = Request_id

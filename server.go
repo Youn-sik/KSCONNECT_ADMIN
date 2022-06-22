@@ -80,6 +80,18 @@ func setupRouter() *gin.Engine {
 	btb_service.POST("/charge_device_delete", func(c *gin.Context) {
 		device.DeviceDelete(c)
 	})
+	btb_service.POST("/charge_device_request", func(c *gin.Context) {
+		device.DeviceRequest(c)
+	})
+	btb_service.GET("/charge_device_request_list", func(c *gin.Context) {
+		device.DeviceRequestList(c)
+	})
+	btb_service.POST("/charge_device_request_submit", func(c *gin.Context) {
+		device.DeviceRequestSubmit(c)
+	})
+	btb_service.GET("/charge_device_request_history", func(c *gin.Context) {
+		device.DeviceRequestHistory(c)
+	})
 
 	btb_service.GET("/user_list", func(c *gin.Context) {
 		b2b_account.UserList(c)
