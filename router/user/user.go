@@ -47,7 +47,7 @@ func TokenBuild(u User) string {
 		Mobile: u.Mobile,
 		Email:  u.Email,
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: jwt.At(time.Now().Add(time.Minute * 15)),
+			ExpiresAt: jwt.At(time.Now().Add(time.Minute * 360)),
 		},
 	}
 

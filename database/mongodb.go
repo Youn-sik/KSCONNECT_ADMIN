@@ -10,9 +10,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func NewMongodbConnection() (*mongo.Client, error) {
+func NewMongodbConnection() *mongo.Client {
 	config, err := setting.LoadConfigSettingJSON()
-
 	if err != nil {
 		log.Fatal(err)
 		panic(err)
@@ -38,5 +37,5 @@ func NewMongodbConnection() (*mongo.Client, error) {
 	}
 
 	log.Println("[SERVER] => MongoDB connection made")
-	return client, err
+	return client
 }

@@ -55,6 +55,18 @@ func setupRouter() *gin.Engine {
 	btb_service.POST("/charge_station_delete", func(c *gin.Context) {
 		station.StationDelete(c)
 	})
+	btb_service.POST("/charge_station_request", func(c *gin.Context) {
+		station.StationRequest(c)
+	})
+	btb_service.GET("/charge_station_request_list", func(c *gin.Context) {
+		station.StationRequestList(c)
+	})
+	btb_service.POST("/charge_station_request_submit", func(c *gin.Context) {
+		station.StationRequestSubmit(c)
+	})
+	btb_service.GET("/charge_station_request_history", func(c *gin.Context) {
+		station.StationRequestHistory(c)
+	})
 
 	btb_service.GET("/charge_device_list", func(c *gin.Context) {
 		device.DeviceList(c)

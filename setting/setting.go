@@ -21,6 +21,14 @@ type SettingJSON struct {
 		Host     string `json:"host"`
 		Port     string `json: "port"`
 	}
+	Nats struct {
+		Host string `json:"host"`
+		Port string `json:"port"`
+	}
+	Btb_service struct {
+		Host string `json:"host"`
+		Port string `json:"port"`
+	}
 }
 
 func LoadConfigSettingJSON() (SettingJSON, error) {
