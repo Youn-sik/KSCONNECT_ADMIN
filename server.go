@@ -3,7 +3,9 @@ package main
 import (
 	"log"
 	"net/http"
+	"sync"
 
+	"github.com/Youn-sik/KSCONNECT_ADMIN/database"
 	n "github.com/Youn-sik/KSCONNECT_ADMIN/natsclient"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b_account"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/device"
@@ -148,14 +150,71 @@ func setupRouter() *gin.Engine {
 	return router
 }
 
+func ReplyNats(subject string) {
+	// Subscribe
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	var send_data []string
+	conn1 := database.NewMysqlConnection()
+
+	switch subject {
+	case "ocpp/v16/chargepoints":
+		{
+			// send_data = append(send_data, "string")
+			rows, err := conn1.Query("select station_id from charge_station")
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			} else {
+				for rows.Next() {
+					var chargePoints string
+					err = rows.Scan(&chargePoints)
+					if err != nil {
+						log.Println(err)
+						wg.Done()
+					} else {
+						send_data = append(send_data, chargePoints)
+					}
+				}
+			}
+		}
+	case "ocpp/v16/idtags":
+		{
+			// send_data = append(send_data, "string")
+			rows, err := conn1.Query("select uid from user")
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			} else {
+				for rows.Next() {
+					var idtags string
+					err = rows.Scan(&idtags)
+					if err != nil {
+						log.Println(err)
+						wg.Done()
+					} else {
+						send_data = append(send_data, idtags)
+					}
+				}
+			}
+		}
+	}
+
+	nc.Reply(subject, send_data, &wg)
+	wg.Wait()
+}
+
 func main() {
 	var port string = ":4001"
-	// var subject string
 
-	// // nc := n.NewNatsClient()
-	// // defer nc.Close()
+	nc := n.NewNatsClient()
+	defer nc.Close()
 
-	// // go n.NatsReply(nc, subject)
+	log.Println(nc)
+
+	go ReplyNats("ocpp/v16/chargepoints")
+	go ReplyNats("ocpp/v16/idtags")
 
 	router := setupRouter()
 	log.Println("[SERVER] => Backend Admin application is listening on port " + port)
