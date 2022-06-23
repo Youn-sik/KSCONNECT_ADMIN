@@ -29,6 +29,10 @@ type SettingJSON struct {
 		Host string `json:"host"`
 		Port string `json:"port"`
 	}
+	User_service struct {
+		Host string `json:"host"`
+		Port string `json:"port"`
+	}
 }
 
 func LoadConfigSettingJSON() (SettingJSON, error) {

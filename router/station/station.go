@@ -25,7 +25,7 @@ type CreateReq struct {
 	Address        string
 	Address_detail string
 	Available      string
-	Park_fee       int
+	Park_fee       string
 	Pay_type       string
 	Lat            string
 	Longi          string
@@ -44,7 +44,7 @@ type UpdateReq struct {
 	Address        string
 	Address_detail string
 	Available      string
-	Park_fee       int
+	Park_fee       string
 	Pay_type       string
 	Lat            string
 	Longi          string

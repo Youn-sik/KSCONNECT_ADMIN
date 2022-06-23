@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	n "github.com/Youn-sik/KSCONNECT_ADMIN/natsclient"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b_account"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/device"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/station"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+var nc *n.NatsClient
 
 func authenticateMiddleware(c *gin.Context) {
 	authToken := c.Request.Header.Get("authorization")
@@ -111,14 +114,50 @@ func setupRouter() *gin.Engine {
 	user_service.POST("/user_delete", func(c *gin.Context) {
 		user_account.UserDelete(c)
 	})
+	user_service.GET("/membership_card_list", func(c *gin.Context) {
+		user_account.MembershipCardList(c)
+	})
+	user_service.POST("/membership_card_create", func(c *gin.Context) {
+		user_account.MembershipCardCreate(c)
+	})
+	user_service.POST("/membership_card_update", func(c *gin.Context) {
+		user_account.MembershipCardUpdate(c)
+	})
+	user_service.POST("/membership_card_delete", func(c *gin.Context) {
+		user_account.MembershipCardDelete(c)
+	})
+	user_service.POST("/membership_card_request", func(c *gin.Context) {
+		user_account.MembershipCardRequest(c)
+	})
+	user_service.GET("/membership_card_request_list", func(c *gin.Context) {
+		user_account.MembershipCardRequestList(c)
+	})
+	user_service.POST("/membership_card_request_submit", func(c *gin.Context) {
+		user_account.MembershipCardRequestSubmit(c)
+	})
+	user_service.GET("/membership_card_request_history", func(c *gin.Context) {
+		user_account.MembershipCardRequestHistory(c)
+	})
+	user_service.GET("/inquiry_board_list", func(c *gin.Context) {
+		user_account.InquiryBoardList(c)
+	})
+	user_service.POST("/inquiry_board_reply", func(c *gin.Context) {
+		user_account.InquiryBoardReply(c)
+	})
 
 	return router
 }
 
 func main() {
 	var port string = ":4001"
+	// var subject string
+
+	// // nc := n.NewNatsClient()
+	// // defer nc.Close()
+
+	// // go n.NatsReply(nc, subject)
 
 	router := setupRouter()
-	router.Run(port)
 	log.Println("[SERVER] => Backend Admin application is listening on port " + port)
+	router.Run(port)
 }
