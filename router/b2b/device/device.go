@@ -97,7 +97,6 @@ func DeviceList(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	} else {
 		resultJson := jsonify.Jsonify(rows)
-		log.Println(resultJson)
 
 		send_data.result = "true"
 		send_data.errStr = ""

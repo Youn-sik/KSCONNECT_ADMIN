@@ -4,17 +4,28 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/Youn-sik/KSCONNECT_ADMIN/database"
+	"github.com/Youn-sik/KSCONNECT_ADMIN/natsclient"
 	n "github.com/Youn-sik/KSCONNECT_ADMIN/natsclient"
-	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b_account"
-	"github.com/Youn-sik/KSCONNECT_ADMIN/router/device"
-	"github.com/Youn-sik/KSCONNECT_ADMIN/router/station"
-	"github.com/Youn-sik/KSCONNECT_ADMIN/router/user"
-	"github.com/Youn-sik/KSCONNECT_ADMIN/router/user_account"
+	"github.com/Youn-sik/KSCONNECT_ADMIN/router/admin/user"
+	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b/b2b_account"
+	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b/device"
+	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b/station"
+	"github.com/Youn-sik/KSCONNECT_ADMIN/router/user/user_account"
 
+	v16 "github.com/aliml92/ocpp/v16"
 	"github.com/gin-gonic/gin"
+	"github.com/robfig/cron"
 )
+
+type IdTag struct {
+	IdTag       string    `bson:"idTag" json:"idTag"`
+	ExpiryDate  time.Time `bson:"expiryDate,omitempty" json:"expiryDate,omitempty"`
+	ParentIdTag string    `bson:"parentIdTag,omitempty" json:"parentIdTag,omitempty"`
+	Blocked     bool      `bson:"blocked,omitempty" json:"blocked,omitempty"`
+}
 
 var nc *n.NatsClient
 
@@ -38,8 +49,25 @@ func authenticateMiddleware(c *gin.Context) {
 	}
 }
 
+func CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, Origin")
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, DELETE, POST")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
+}
+
 func setupRouter() *gin.Engine {
 	router := gin.Default()
+	router.Use(CORSMiddleware())
 
 	NAuth := router.Group("/NAuth")
 	NAuth.POST("/user/login", func(c *gin.Context) {
@@ -155,13 +183,12 @@ func ReplyNats(subject string) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	var send_data []string
 	conn1 := database.NewMysqlConnection()
 
 	switch subject {
 	case "ocpp/v16/chargepoints":
 		{
-			// send_data = append(send_data, "string")
+			var send_data []string
 			rows, err := conn1.Query("select station_id from charge_station")
 			if err != nil {
 				log.Println(err)
@@ -178,38 +205,102 @@ func ReplyNats(subject string) {
 					}
 				}
 			}
+			nc.Reply(subject, send_data, &wg)
 		}
 	case "ocpp/v16/idtags":
 		{
-			// send_data = append(send_data, "string")
-			rows, err := conn1.Query("select uid from user")
+			var ttts []IdTag
+			var ttt IdTag
+			rows, err := conn1.Query("select uid as idTag from user")
 			if err != nil {
 				log.Println(err)
 				wg.Done()
 			} else {
+				// resultJson := jsonify.Jsonify(rows)
+				// log.Println(reflect.TypeOf(resultJson[0]))
+				// send_data = resultJson
+
 				for rows.Next() {
-					var idtags string
-					err = rows.Scan(&idtags)
+					// var idtags int
+					err = rows.Scan(&ttt.IdTag)
 					if err != nil {
 						log.Println(err)
 						wg.Done()
 					} else {
-						send_data = append(send_data, idtags)
+						ttts = append(ttts, ttt)
 					}
 				}
+
+				// log.Println(ttts)
+				nc.Reply(subject, ttts, &wg)
 			}
 		}
 	}
 
-	nc.Reply(subject, send_data, &wg)
+	wg.Wait()
+}
+
+func SubscribeNats() {
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	ch1 := make(chan v16.GMeterValuesReq)
+	err := n.Subscribe[v16.GMeterValuesReq](nc, "ocpp/v16/MeterValues", ch1)
+	if err != nil {
+		wg.Done()
+		log.Println(err)
+	}
+	for m := range ch1 {
+		natsclient.MeterValuesReq(m)
+	}
+
+	wg.Add(1)
+	ch2 := make(chan v16.GBootNotificationReq)
+	err = n.Subscribe[v16.GBootNotificationReq](nc, "ocpp/v16/BootNotification", ch2)
+	if err != nil {
+		wg.Done()
+		log.Println(err)
+	}
+	for m := range ch2 {
+		log.Println(m)
+	}
+
+	wg.Add(1)
+	ch3 := make(chan v16.GStartTransactionReq)
+	err = n.Subscribe[v16.GStartTransactionReq](nc, "ocpp/v16/StartTranscation", ch3)
+	if err != nil {
+		wg.Done()
+		log.Println(err)
+	}
+	for m := range ch3 {
+		log.Println(m)
+	}
+
+	wg.Add(1)
+	ch4 := make(chan v16.GStopTransactionReq)
+	err = n.Subscribe[v16.GStopTransactionReq](nc, "ocpp/v16/StartTranscation", ch4)
+	if err != nil {
+		wg.Done()
+		log.Println(err)
+	}
+	for m := range ch4 {
+		log.Println(m)
+	}
+
 	wg.Wait()
 }
 
 func main() {
 	var port string = ":4001"
 
-	nc := n.NewNatsClient()
+	nc = n.NewNatsClient()
 	defer nc.Close()
+
+	cr := cron.New()
+	// 1분마다 단말 status(사용 중) 값 판단해서 충전중인 단말 MongoDB에서 MeterValue polling 해서 RDB charge_device의 usage update
+	cr.AddFunc("* */1 * * * *", n.UpdateMeterValue)
+	// 매달 RDB의 charge_device usage 0으로 초기화 시 MongoDB 에 저장 필요.
+	// cr.AddFunc("* * * * */1 *")
 
 	log.Println(nc)
 

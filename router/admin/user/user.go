@@ -114,6 +114,7 @@ func Login(c *gin.Context) {
 		send_data.result = "false"
 		send_data.errStr = "body 데이터를 가져오는중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
 	}
 
 	// log.Println(reqData)
@@ -126,10 +127,17 @@ func Login(c *gin.Context) {
 		send_data.result = "false"
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
 	}
 
 	jsonRows := jsonify.Jsonify(rows)
-	log.Println(jsonRows)
+	// log.Println(jsonRows)
+	if len(jsonRows) == 0 {
+		send_data.result = "false"
+		send_data.errStr = "존재하지 않는 계정입니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
+	}
 	json.Unmarshal([]byte(jsonRows[0]), &user)
 
 	// 비밀번호가 숫자로만 이루어져 있을 시, 형태를 int 형으로 가져가게 된다.
@@ -141,6 +149,7 @@ func Login(c *gin.Context) {
 		send_data.result = "false"
 		send_data.errStr = "비밀번호가 동일하지 않습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
 	} else {
 		token := TokenBuild(user)
 
