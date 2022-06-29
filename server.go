@@ -3,11 +3,14 @@ package main
 import (
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/Youn-sik/KSCONNECT_ADMIN/database"
-	"github.com/Youn-sik/KSCONNECT_ADMIN/natsclient"
+	v16 "github.com/aliml92/ocpp/v16"
+
+	// "github.com/Youn-sik/KSCONNECT_ADMIN/natsclient"
 	n "github.com/Youn-sik/KSCONNECT_ADMIN/natsclient"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/admin/user"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b/b2b_account"
@@ -15,7 +18,6 @@ import (
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b/station"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/user/user_account"
 
-	v16 "github.com/aliml92/ocpp/v16"
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron"
 )
@@ -31,6 +33,7 @@ var nc *n.NatsClient
 
 func authenticateMiddleware(c *gin.Context) {
 	authToken := c.Request.Header.Get("authorization")
+	authToken = strings.Replace(authToken, "Bearer ", "", 1)
 
 	if authToken == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"result": "false", "errStr": "No Token"})
@@ -72,6 +75,10 @@ func setupRouter() *gin.Engine {
 	NAuth := router.Group("/NAuth")
 	NAuth.POST("/user/login", func(c *gin.Context) {
 		user.Login(c)
+	})
+
+	NAuth.POST("/user/auth", func(c *gin.Context) {
+		user.Auth(c)
 	})
 
 	btb_service := router.Group("/btb_service")
@@ -240,53 +247,89 @@ func ReplyNats(subject string) {
 	wg.Wait()
 }
 
-func SubscribeNats() {
+func SubscribeNats(subject string) {
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
-	ch1 := make(chan v16.GMeterValuesReq)
-	err := n.Subscribe[v16.GMeterValuesReq](nc, "ocpp/v16/MeterValues", ch1)
-	if err != nil {
-		wg.Done()
-		log.Println(err)
+	switch subject {
+	case "ocpp/v16/MeterValue":
+		{
+			wg.Add(1)
+			ch := make(chan v16.MeterValuesReq)
+			err := n.Subscribe[v16.MeterValuesReq](nc, subject, ch)
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			}
+			d := <-ch
+			log.Println(d)
+			// MongoDB에 계속하여 저장, 밑에서 매분 MongoDB -> MYSQL 로 데이터 Polling
+			// ntime := time.Now().Format(time.RFC3339)
+			// ntime = ntime[:19]
+			// client := database.NewMongodbConnection()
+			// conn := client.Database("Admin_Service").Collection("request_charge_device")
+			// result, err := conn.InsertOne(context.TODO(), bson.D{
+			// 	{Key: "Device_id", Value: reqData.Device_id},
+			// 	{Key: "Request_uid", Value: reqData.Request_uid},
+			// 	{Key: "Station_id", Value: reqData.Station_id},
+			// 	{Key: "Name", Value: reqData.Name},
+			// 	{Key: "Sirial", Value: reqData.Sirial},
+			// 	{Key: "Charge_type", Value: reqData.Charge_type},
+			// 	{Key: "Charge_way", Value: reqData.Charge_way},
+			// 	{Key: "Available", Value: reqData.Available},
+			// 	{Key: "Status", Value: reqData.Status},
+			// 	{Key: "Device_number", Value: reqData.Device_number},
+			// 	{Key: "Request_value", Value: "wating"},
+			// 	{Key: "Request_status", Value: reqData.Request_status},
+			// 	{Key: "Timestamp", Value: ntime},
+			// })
+			// if err != nil {
+			// 	log.Println(err)
+			// 	send_data.result = "false"
+			// 	send_data.errStr = "MongoDB logging 중 문제가 발생하였습니다."
+			// 	c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+			// } else {
+			// }
+		}
+	case "ocpp/v16/BootNotification":
+		{
+			wg.Add(1)
+			ch := make(chan v16.BootNotificationReq)
+			err := n.Subscribe[v16.BootNotificationReq](nc, subject, ch)
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			}
+			d := <-ch
+			log.Println(d)
+			// MYSQL device status Y, MongoDB Save
+		}
+	case "startTransaction":
+		{
+			wg.Add(1)
+			ch := make(chan v16.StartTransactionReq)
+			err := n.Subscribe[v16.StartTransactionReq](nc, subject, ch)
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			}
+			d := <-ch
+			log.Println(d)
+			// MYSQL device status I, MongoDB Save, Mobile Service Alarm(FCM)
+		}
+	case "StopTransaction":
+		{
+			wg.Add(1)
+			ch := make(chan v16.StartTransactionReq)
+			err := n.Subscribe[v16.StartTransactionReq](nc, subject, ch)
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			}
+			d := <-ch
+			log.Println(d)
+			// MYSQL device status Y, MongoDB Save, User Service Payment Request, Mobile Service Alarm(FCM)
+		}
 	}
-	for m := range ch1 {
-		natsclient.MeterValuesReq(m)
-	}
-
-	wg.Add(1)
-	ch2 := make(chan v16.GBootNotificationReq)
-	err = n.Subscribe[v16.GBootNotificationReq](nc, "ocpp/v16/BootNotification", ch2)
-	if err != nil {
-		wg.Done()
-		log.Println(err)
-	}
-	for m := range ch2 {
-		log.Println(m)
-	}
-
-	wg.Add(1)
-	ch3 := make(chan v16.GStartTransactionReq)
-	err = n.Subscribe[v16.GStartTransactionReq](nc, "ocpp/v16/StartTranscation", ch3)
-	if err != nil {
-		wg.Done()
-		log.Println(err)
-	}
-	for m := range ch3 {
-		log.Println(m)
-	}
-
-	wg.Add(1)
-	ch4 := make(chan v16.GStopTransactionReq)
-	err = n.Subscribe[v16.GStopTransactionReq](nc, "ocpp/v16/StartTranscation", ch4)
-	if err != nil {
-		wg.Done()
-		log.Println(err)
-	}
-	for m := range ch4 {
-		log.Println(m)
-	}
-
 	wg.Wait()
 }
 
@@ -306,6 +349,8 @@ func main() {
 
 	go ReplyNats("ocpp/v16/chargepoints")
 	go ReplyNats("ocpp/v16/idtags")
+
+	go SubscribeNats("ocpp/v16/MeterValue")
 
 	router := setupRouter()
 	log.Println("[SERVER] => Backend Admin application is listening on port " + port)

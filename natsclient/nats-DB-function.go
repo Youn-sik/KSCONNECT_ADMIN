@@ -37,18 +37,18 @@ func UpdateMeterValue() {
 	}
 }
 
-func MeterValuesReq(GmeterValueReq v16.GMeterValuesReq) {
-	meterValueReq := GmeterValueReq.Payload
+func MeterValuesReq(GmeterValueReq v16.MeterValuesReq) {
+	// meterValueReq := GmeterValueReq.MeterValue
 
 	// MongoDB meter logging
 	MongoClient = database.NewMongodbConnection()
 	conn := MongoClient.Database("Admin_Service").Collection("OCPP_meter")
 
 	result, err := conn.InsertOne(context.TODO(), bson.D{
-		{Key: "chargePointId", Value: GmeterValueReq.ChargePointId},
-		{Key: "connectorId", Value: meterValueReq.ConnectorId},
-		{Key: "transactionId", Value: meterValueReq.TransactionId},
-		{Key: "meterValue", Value: meterValueReq.MeterValue},
+		// {Key: "chargePointId", Value: GmeterValueReq.ChargePointId},
+		// {Key: "connectorId", Value: meterValueReq.ConnectorId},
+		// {Key: "transactionId", Value: meterValueReq.TransactionId},
+		// {Key: "meterValue", Value: meterValueReq.MeterValue},
 	})
 	if err != nil {
 		log.Println(err)

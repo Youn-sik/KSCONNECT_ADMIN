@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Youn-sik/KSCONNECT_ADMIN/database"
@@ -61,6 +62,36 @@ func TokenBuild(u User) string {
 
 	// log.Println(signedAuthToken)
 	return signedAuthToken
+}
+
+func Auth(c *gin.Context) {
+	var send_data struct {
+		result bool
+		msg    string
+	}
+	authToken := c.Request.Header.Get("authorization")
+	authToken = strings.Replace(authToken, "Bearer ", "", 1)
+
+	send_data.result = false
+	if authToken == "" {
+		send_data.msg = "Token is required."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "msg": send_data.msg})
+		return
+	}
+
+	isValid := TokenCheck(authToken)
+	if isValid {
+		send_data.result = true
+		send_data.msg = "Token is verified."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "msg": send_data.msg})
+		return
+	} else {
+		send_data.msg = "Token is ."
+		c.JSON(http.StatusUnauthorized, gin.H{"result": "false", "msg": "Expired Token"})
+		c.Abort()
+		return
+	}
+
 }
 
 func GetUserInfo() ([]string, error) {
