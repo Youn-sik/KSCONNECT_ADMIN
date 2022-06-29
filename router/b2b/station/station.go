@@ -60,6 +60,7 @@ type DeleteReq struct {
 
 type RequestReq struct {
 	// Request_id    int
+	Station_id     int
 	Request_uid    int
 	Company_id     int
 	Name           string
@@ -229,11 +230,18 @@ func StationRequest(c *gin.Context) {
 	}
 	reqData := RequestReq{}
 	err := c.Bind(&reqData)
+	log.Println(reqData)
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
 		send_data.errStr = "Body parsing 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+	}
+	if reqData.Station_id != 0 && reqData.Request_status == "C" {
+		send_data.result = "false"
+		send_data.errStr = "생성 요청은 station_id = 0 입니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
 	}
 
 	// MongoDB logging
@@ -243,6 +251,7 @@ func StationRequest(c *gin.Context) {
 	conn := client.Database("Admin_Service").Collection("request_charge_station")
 
 	result, err := conn.InsertOne(context.TODO(), bson.D{
+		{Key: "Station_id", Value: reqData.Station_id},
 		{Key: "Request_uid", Value: reqData.Request_uid},
 		{Key: "Company_id", Value: reqData.Company_id},
 		{Key: "Name", Value: reqData.Name},
@@ -272,9 +281,9 @@ func StationRequest(c *gin.Context) {
 		conn1 := database.NewMysqlConnection()
 		defer conn1.Close()
 
-		rows, err := conn1.Query("insert into request_charge_station (request_uid, company_id, name, status, address, address_detail, "+
-			"available, park_fee, pay_type, lat, longi, purpose, guide, request_time, request_status) value (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-			reqData.Request_uid, reqData.Company_id, reqData.Name, reqData.Status, reqData.Address, reqData.Address_detail,
+		rows, err := conn1.Query("insert into request_charge_station (station_id, request_uid, company_id, name, status, address, address_detail, "+
+			"available, park_fee, pay_type, lat, longi, purpose, guide, request_time, request_status) value (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+			reqData.Station_id, reqData.Request_uid, reqData.Company_id, reqData.Name, reqData.Status, reqData.Address, reqData.Address_detail,
 			reqData.Available, reqData.Park_fee, reqData.Pay_type, reqData.Lat, reqData.Longi, reqData.Purpose, reqData.Guide, ntime, reqData.Request_status)
 		if err != nil {
 			log.Println(err)

@@ -52,6 +52,7 @@ type DeleteReq struct {
 
 type RequestReq struct {
 	// Request_id int
+	Device_id      int
 	Request_uid    int
 	Station_id     int
 	Name           string
@@ -213,6 +214,12 @@ func DeviceRequest(c *gin.Context) {
 		send_data.errStr = "Body parsing 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	}
+	if reqData.Device_id != 0 && reqData.Request_status == "C" {
+		send_data.result = "false"
+		send_data.errStr = "생성 요청은 device_id = 0 입니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
+	}
 
 	// MongoDB logging
 	ntime := time.Now().Format(time.RFC3339)
@@ -221,6 +228,7 @@ func DeviceRequest(c *gin.Context) {
 	conn := client.Database("Admin_Service").Collection("request_charge_device")
 
 	result, err := conn.InsertOne(context.TODO(), bson.D{
+		{Key: "Device_id", Value: reqData.Device_id},
 		{Key: "Request_uid", Value: reqData.Request_uid},
 		{Key: "Station_id", Value: reqData.Station_id},
 		{Key: "Name", Value: reqData.Name},
@@ -246,9 +254,9 @@ func DeviceRequest(c *gin.Context) {
 		conn1 := database.NewMysqlConnection()
 		defer conn1.Close()
 
-		rows, err := conn1.Query("insert into request_charge_device (request_uid, station_id, name, sirial, charge_type, charge_way, available, status, "+
-			"device_number, request_time, request_status) value (?,?,?,?,?,?,?,?,?,?,?)",
-			reqData.Request_uid, reqData.Station_id, reqData.Name, reqData.Sirial, reqData.Charge_type, reqData.Charge_way, reqData.Available, reqData.Status,
+		rows, err := conn1.Query("insert into request_charge_device (device_id, request_uid, station_id, name, sirial, charge_type, charge_way, available, status, "+
+			"device_number, request_time, request_status) value (?,?,?,?,?,?,?,?,?,?,?,?)",
+			reqData.Device_id, reqData.Request_uid, reqData.Station_id, reqData.Name, reqData.Sirial, reqData.Charge_type, reqData.Charge_way, reqData.Available, reqData.Status,
 			reqData.Device_number, ntime, reqData.Request_status)
 		if err != nil {
 			log.Println(err)
