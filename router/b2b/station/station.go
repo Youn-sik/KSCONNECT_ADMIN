@@ -25,7 +25,7 @@ type CreateReq struct {
 	Address        string
 	Address_detail string
 	Available      string
-	Park_fee       string
+	Park_fee       int
 	Pay_type       string
 	Lat            string
 	Longi          string
@@ -44,7 +44,7 @@ type UpdateReq struct {
 	Address        string
 	Address_detail string
 	Available      string
-	Park_fee       string
+	Park_fee       int
 	Pay_type       string
 	Lat            string
 	Longi          string
@@ -68,7 +68,7 @@ type RequestReq struct {
 	Address        string
 	Address_detail string
 	Available      string
-	Park_fee       string
+	Park_fee       int
 	Pay_type       string
 	Lat            string
 	Longi          string
@@ -87,7 +87,7 @@ type RequestSubmitReq struct {
 	Address        string `json:"address"`
 	Address_detail string `json:"address_detail"`
 	Available      string `json:"available"`
-	Park_fee       string `json:"park_fee"`
+	Park_fee       int    `json:"park_fee"`
 	Pay_type       string `json:"pay_type"`
 	Lat            string `json:"lat"`
 	Longi          string `json:"longi"`

@@ -19,7 +19,7 @@ import (
 )
 
 type CreateReq struct {
-	// Uid                    string
+	// Uid                    int
 	Id                     string
 	Password               string
 	Name                   string
@@ -103,7 +103,7 @@ func UserList(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("select * from user")
+	rows, err := conn1.Query("select uid, id, name, email, mobile, address, car_model, car_number, payment_card_company, payment_card_number, membership_card_number, point, rfid from user")
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
@@ -135,7 +135,7 @@ func UserCreate(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("insert into user (id, password, name, email, mobile, address, car_model, car_number, payment_card_company, payment_card_number, membership_card_number, rfid) "+
+	_, err = conn1.Query("insert into user (id, password, name, email, mobile, address, car_model, car_number, payment_card_company, payment_card_number, membership_card_number, rfid) "+
 		"value (?,?,?,?,?,?,?,?,?,?,?,?)",
 		reqData.Id, reqData.Password, reqData.Name, reqData.Email, reqData.Mobile, reqData.Address, reqData.Car_model, reqData.Car_number, reqData.Payment_card_company, reqData.Payment_card_number, reqData.Membership_card_number, reqData.Rfid)
 	if err != nil {
@@ -144,7 +144,7 @@ func UserCreate(c *gin.Context) {
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	} else {
-		log.Println(rows)
+		// log.Println(rows)
 		send_data.result = "true"
 		send_data.errStr = ""
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
@@ -168,7 +168,7 @@ func UserUpdate(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("update user set id = ?, password = ?, name = ?, email = ?, mobile = ?, address = ?, car_model = ?, car_number = ?, "+
+	_, err = conn1.Query("update user set id = ?, password = ?, name = ?, email = ?, mobile = ?, address = ?, car_model = ?, car_number = ?, "+
 		"payment_card_company = ?, payment_card_number = ?, membership_card_number = ?, point = ?, rfid = ? where uid = ?",
 		reqData.Id, reqData.Password, reqData.Name, reqData.Email, reqData.Mobile, reqData.Address, reqData.Car_model, reqData.Car_number,
 		reqData.Payment_card_company, reqData.Payment_card_number, reqData.Membership_card_number, reqData.Point, reqData.Rfid, reqData.Uid)
@@ -178,7 +178,7 @@ func UserUpdate(c *gin.Context) {
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	} else {
-		log.Println(rows)
+		// log.Println(rows)
 		send_data.result = "true"
 		send_data.errStr = ""
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
@@ -202,7 +202,7 @@ func UserDelete(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query(
+	_, err = conn1.Query(
 		"delete from user where uid = ?", reqData.Uid)
 	if err != nil {
 		log.Println(err)
@@ -210,7 +210,7 @@ func UserDelete(c *gin.Context) {
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	} else {
-		log.Println(rows)
+		// log.Println(rows)
 		send_data.result = "true"
 		send_data.errStr = ""
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
@@ -287,7 +287,7 @@ func MembershipCardCreate(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("insert into user_membership_card (request_uid, membership_card_number, request_way, request_status, request_time, request_reason) value (?,?,?,?,?,?)",
+	_, err = conn1.Query("insert into user_membership_card (request_uid, membership_card_number, request_way, request_status, request_time, request_reason) value (?,?,?,?,?,?)",
 		reqData.Request_uid, membership_card_number, reqData.Request_way, reqData.Request_status, ntime, reqData.Request_reason)
 	if err != nil {
 		log.Println(err)
@@ -295,7 +295,7 @@ func MembershipCardCreate(c *gin.Context) {
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	} else {
-		log.Println(rows)
+		// log.Println(rows)
 		send_data.result = "true"
 		send_data.errStr = ""
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
@@ -319,7 +319,7 @@ func MembershipCardUpdate(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("update user_membership_card set membership_card_number = ?, request_way = ?, request_status = ?, request_reason = ? where request_uid = ?",
+	_, err = conn1.Query("update user_membership_card set membership_card_number = ?, request_way = ?, request_status = ?, request_reason = ? where request_uid = ?",
 		reqData.Membership_card_number, reqData.Request_way, reqData.Request_status, reqData.Request_reason, reqData.Request_uid)
 	if err != nil {
 		log.Println(err)
@@ -327,7 +327,7 @@ func MembershipCardUpdate(c *gin.Context) {
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	} else {
-		log.Println(rows)
+		// log.Println(rows)
 		send_data.result = "true"
 		send_data.errStr = ""
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
@@ -351,14 +351,14 @@ func MembershipCardDelete(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("delete from user_membership_card where request_uid = ?", reqData.Request_uid)
+	_, err = conn1.Query("delete from user_membership_card where request_uid = ?", reqData.Request_uid)
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	} else {
-		log.Println(rows)
+		// log.Println(rows)
 		send_data.result = "true"
 		send_data.errStr = ""
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
@@ -386,7 +386,7 @@ func MembershipCardRequest(c *gin.Context) {
 	client := database.NewMongodbConnection()
 	conn := client.Database("Admin_Service").Collection("request_membership_card")
 
-	result, err := conn.InsertOne(context.TODO(), bson.D{
+	_, err = conn.InsertOne(context.TODO(), bson.D{
 		{Key: "Request_uid", Value: reqData.Request_uid},
 		{Key: "Request_way", Value: reqData.Request_way},
 		{Key: "Request_reason", Value: reqData.Request_reason},
@@ -398,14 +398,15 @@ func MembershipCardRequest(c *gin.Context) {
 		send_data.result = "false"
 		send_data.errStr = "MongoDB logging 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
-	} else {
-		log.Println(result)
 	}
+	// else {
+	// 	log.Println(result)
+	// }
 
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("insert into request_user_membership_card (request_uid, request_time, request_way, request_reason) value (?,?,?,?)",
+	_, err = conn1.Query("insert into request_user_membership_card (request_uid, request_time, request_way, request_reason) value (?,?,?,?)",
 		reqData.Request_uid, ntime, reqData.Request_way, reqData.Request_reason)
 	if err != nil {
 		log.Println(err)
@@ -413,7 +414,7 @@ func MembershipCardRequest(c *gin.Context) {
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	} else {
-		log.Println(rows)
+		// log.Println(rows)
 		send_data.result = "true"
 		send_data.errStr = ""
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
@@ -493,8 +494,8 @@ func MembershipCardRequestSubmit(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 			}
 
-			log.Println(respStr)
-			log.Println(respJson)
+			// log.Println(respStr)
+			// log.Println(respJson)
 
 			// 이후 resp["result"] 체크 후 정상 MongoDB 에 Logging / Mysql에 Delete
 			if respJson["result"] != "false" {
@@ -507,14 +508,14 @@ func MembershipCardRequestSubmit(c *gin.Context) {
 				conn1 := database.NewMysqlConnection()
 				defer conn1.Close()
 
-				rows, err := conn1.Query("delete from request_user_membership_card where request_id = ?", reqData.Request_id)
+				_, err := conn1.Query("delete from request_user_membership_card where request_id = ?", reqData.Request_id)
 				if err != nil {
 					log.Println(err)
 					send_data.result = "false"
 					send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 					c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 				} else {
-					log.Println(rows)
+					// log.Println(rows)
 
 					// MongoDB logging
 					// "Request_value" : "waiting"/"permitted"/"reject"
@@ -524,7 +525,7 @@ func MembershipCardRequestSubmit(c *gin.Context) {
 					client := database.NewMongodbConnection()
 					conn := client.Database("Admin_Service").Collection("request_membership_card")
 
-					result, err := conn.InsertOne(context.TODO(), bson.D{
+					_, err := conn.InsertOne(context.TODO(), bson.D{
 						{Key: "Request_uid", Value: reqData.Request_uid},
 						{Key: "Request_way", Value: reqData.Request_way},
 						{Key: "Request_reason", Value: reqData.Request_reason},
@@ -537,7 +538,7 @@ func MembershipCardRequestSubmit(c *gin.Context) {
 						send_data.errStr = "MongoDB logging 중 문제가 발생하였습니다."
 						c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 					} else {
-						log.Println(result)
+						// log.Println(result)
 
 						send_data.result = "true"
 						send_data.errStr = ""
@@ -624,14 +625,14 @@ func InquiryBoardReply(c *gin.Context) {
 	}
 
 	conn1 := database.NewMysqlConnection()
-	rows, err := conn1.Query("update inquiry_board set reply = ?, status = 'Y' where inquiry_id = ?", reqData.Reply, reqData.Inquiry_id)
+	_, err = conn1.Query("update inquiry_board set reply = ?, status = 'Y' where inquiry_id = ?", reqData.Reply, reqData.Inquiry_id)
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	} else {
-		log.Println(rows)
+		// log.Println(rows)
 
 		send_data.result = "true"
 		send_data.errStr = ""

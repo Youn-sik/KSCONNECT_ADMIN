@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"strings"
@@ -9,12 +10,14 @@ import (
 
 	"github.com/Youn-sik/KSCONNECT_ADMIN/database"
 	v16 "github.com/aliml92/ocpp/v16"
+	"go.mongodb.org/mongo-driver/bson"
 
 	// "github.com/Youn-sik/KSCONNECT_ADMIN/natsclient"
 	n "github.com/Youn-sik/KSCONNECT_ADMIN/natsclient"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/admin/user"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b/b2b_account"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b/device"
+	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b/report"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b/station"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/user/user_account"
 
@@ -27,6 +30,27 @@ type IdTag struct {
 	ExpiryDate  time.Time `bson:"expiryDate,omitempty" json:"expiryDate,omitempty"`
 	ParentIdTag string    `bson:"parentIdTag,omitempty" json:"parentIdTag,omitempty"`
 	Blocked     bool      `bson:"blocked,omitempty" json:"blocked,omitempty"`
+}
+
+type GenMeterValuesRes struct {
+	ChargePointId string             `json:"id"`
+	Payload       v16.MeterValuesReq `json:"payload,omitempty"`
+}
+type GenBootNotificationReq struct {
+	ChargePointId string                  `json:"id"`
+	Payload       v16.BootNotificationReq `json:"payload,omitempty"`
+}
+type GenStartTransactionReq struct {
+	ChargePointId string                  `json:"id"`
+	Payload       v16.StartTransactionReq `json:"payload,omitempty"`
+}
+type GenStopTransactionReq struct {
+	ChargePointId string                 `json:"id"`
+	Payload       v16.StopTransactionReq `json:"payload,omitempty"`
+}
+type GenStatusNotificationReq struct {
+	ChargePointId string                    `json:"id"`
+	Payload       v16.StatusNotificationReq `json:"payload,omitempty"`
 }
 
 var nc *n.NatsClient
@@ -135,6 +159,10 @@ func setupRouter() *gin.Engine {
 
 	btb_service.GET("/user_list", func(c *gin.Context) {
 		b2b_account.UserList(c)
+	})
+
+	btb_service.GET("/billing_list_company", func(c *gin.Context) {
+		report.ReportList(c)
 	})
 
 	user_service := router.Group("/user_service")
@@ -251,83 +279,155 @@ func SubscribeNats(subject string) {
 	wg := sync.WaitGroup{}
 
 	switch subject {
-	case "ocpp/v16/MeterValue":
+	case "ocpp/v16/MeterValues":
 		{
 			wg.Add(1)
-			ch := make(chan v16.MeterValuesReq)
-			err := n.Subscribe[v16.MeterValuesReq](nc, subject, ch)
+			ch := make(chan GenMeterValuesRes)
+			err := n.Subscribe[GenMeterValuesRes](nc, subject, ch)
 			if err != nil {
 				log.Println(err)
 				wg.Done()
 			}
-			d := <-ch
-			log.Println(d)
-			// MongoDB에 계속하여 저장, 밑에서 매분 MongoDB -> MYSQL 로 데이터 Polling
-			// ntime := time.Now().Format(time.RFC3339)
-			// ntime = ntime[:19]
-			// client := database.NewMongodbConnection()
-			// conn := client.Database("Admin_Service").Collection("request_charge_device")
-			// result, err := conn.InsertOne(context.TODO(), bson.D{
-			// 	{Key: "Device_id", Value: reqData.Device_id},
-			// 	{Key: "Request_uid", Value: reqData.Request_uid},
-			// 	{Key: "Station_id", Value: reqData.Station_id},
-			// 	{Key: "Name", Value: reqData.Name},
-			// 	{Key: "Sirial", Value: reqData.Sirial},
-			// 	{Key: "Charge_type", Value: reqData.Charge_type},
-			// 	{Key: "Charge_way", Value: reqData.Charge_way},
-			// 	{Key: "Available", Value: reqData.Available},
-			// 	{Key: "Status", Value: reqData.Status},
-			// 	{Key: "Device_number", Value: reqData.Device_number},
-			// 	{Key: "Request_value", Value: "wating"},
-			// 	{Key: "Request_status", Value: reqData.Request_status},
-			// 	{Key: "Timestamp", Value: ntime},
-			// })
-			// if err != nil {
-			// 	log.Println(err)
-			// 	send_data.result = "false"
-			// 	send_data.errStr = "MongoDB logging 중 문제가 발생하였습니다."
-			// 	c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
-			// } else {
-			// }
+			m := <-ch
+			log.Println("===" + subject + "===")
+			log.Println(m)
+
+			// MongoDB Save
+			ntime := time.Now().Format(time.RFC3339)
+			ntime = ntime[:19]
+			client := database.NewMongodbConnection()
+			conn := client.Database("Admin_Service").Collection("ocpp_MeterValues")
+			result, err := conn.InsertOne(context.TODO(), bson.D{
+				{Key: "MeterValues", Value: m},
+				{Key: "Timestamp", Value: ntime},
+			})
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			} else {
+				log.Println(result)
+				wg.Done()
+			}
 		}
 	case "ocpp/v16/BootNotification":
 		{
 			wg.Add(1)
-			ch := make(chan v16.BootNotificationReq)
-			err := n.Subscribe[v16.BootNotificationReq](nc, subject, ch)
+			ch := make(chan GenBootNotificationReq)
+			err := n.Subscribe[GenBootNotificationReq](nc, subject, ch)
 			if err != nil {
 				log.Println(err)
 				wg.Done()
 			}
-			d := <-ch
-			log.Println(d)
-			// MYSQL device status Y, MongoDB Save
+			b := <-ch
+			log.Println("===" + subject + "===")
+			log.Println(b)
+			// MongoDB Save
+			ntime := time.Now().Format(time.RFC3339)
+			ntime = ntime[:19]
+			client := database.NewMongodbConnection()
+			conn := client.Database("Admin_Service").Collection("ocpp_BootNotification")
+			result, err := conn.InsertOne(context.TODO(), bson.D{
+				{Key: "BootNotification", Value: b},
+				{Key: "Timestamp", Value: ntime},
+			})
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			} else {
+				log.Println(result)
+				// MYSQL device status Y
+				wg.Done()
+			}
 		}
-	case "startTransaction":
+	case "ocpp/v16/StartTransaction":
 		{
 			wg.Add(1)
-			ch := make(chan v16.StartTransactionReq)
-			err := n.Subscribe[v16.StartTransactionReq](nc, subject, ch)
+			ch := make(chan GenStartTransactionReq)
+			err := n.Subscribe[GenStartTransactionReq](nc, subject, ch)
 			if err != nil {
 				log.Println(err)
 				wg.Done()
 			}
-			d := <-ch
-			log.Println(d)
-			// MYSQL device status I, MongoDB Save, Mobile Service Alarm(FCM)
+			s := <-ch
+			log.Println("===" + subject + "===")
+			log.Println(s)
+			// MongoDB Save
+			ntime := time.Now().Format(time.RFC3339)
+			ntime = ntime[:19]
+			client := database.NewMongodbConnection()
+			conn := client.Database("Admin_Service").Collection("ocpp_StartTransaction")
+			result, err := conn.InsertOne(context.TODO(), bson.D{
+				{Key: "BootNotification", Value: s},
+				{Key: "Timestamp", Value: ntime},
+			})
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			} else {
+				log.Println(result)
+				// MYSQL device status I, Mobile Service Alarm(FCM)
+				wg.Done()
+			}
 		}
-	case "StopTransaction":
+	case "ocpp/v16/StopTransaction":
 		{
 			wg.Add(1)
-			ch := make(chan v16.StartTransactionReq)
-			err := n.Subscribe[v16.StartTransactionReq](nc, subject, ch)
+			ch := make(chan GenStopTransactionReq)
+			err := n.Subscribe[GenStopTransactionReq](nc, subject, ch)
 			if err != nil {
 				log.Println(err)
 				wg.Done()
 			}
-			d := <-ch
-			log.Println(d)
-			// MYSQL device status Y, MongoDB Save, User Service Payment Request, Mobile Service Alarm(FCM)
+			s := <-ch
+			log.Println("===" + subject + "===")
+			log.Println(s)
+			// MongoDB Save
+			ntime := time.Now().Format(time.RFC3339)
+			ntime = ntime[:19]
+			client := database.NewMongodbConnection()
+			conn := client.Database("Admin_Service").Collection("ocpp_StopTransaction")
+			result, err := conn.InsertOne(context.TODO(), bson.D{
+				{Key: "BootNotification", Value: s},
+				{Key: "Timestamp", Value: ntime},
+			})
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			} else {
+				log.Println(result)
+				// MYSQL device status Y, charge_device의 충전량 갱신, User Service Payment Request, Mobile Service Alarm(FCM)
+				wg.Done()
+			}
+		}
+	case "ocpp/v16/StatusNotification":
+		{
+			wg.Add(1)
+			ch := make(chan GenStatusNotificationReq)
+			err := n.Subscribe[GenStatusNotificationReq](nc, subject, ch)
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			}
+			s := <-ch
+			log.Println("===" + subject + "===")
+			log.Println(s)
+			// MongoDB Save
+			ntime := time.Now().Format(time.RFC3339)
+			ntime = ntime[:19]
+			client := database.NewMongodbConnection()
+			conn := client.Database("Admin_Service").Collection("ocpp_StatusNotification")
+			result, err := conn.InsertOne(context.TODO(), bson.D{
+				{Key: "BootNotification", Value: s},
+				{Key: "Timestamp", Value: ntime},
+			})
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			} else {
+				log.Println(result)
+				// MYSQL device status set
+				wg.Done()
+			}
 		}
 	}
 	wg.Wait()
@@ -341,16 +441,20 @@ func main() {
 
 	cr := cron.New()
 	// 1분마다 단말 status(사용 중) 값 판단해서 충전중인 단말 MongoDB에서 MeterValue polling 해서 RDB charge_device의 usage update
-	cr.AddFunc("* */1 * * * *", n.UpdateMeterValue)
+	_ = cr.AddFunc("1 * * * * *", n.UpdateMeterValue)
+	// _ = cr.AddFunc("*/10 * * * * *", n.UpdateMeterValue)
 	// 매달 RDB의 charge_device usage 0으로 초기화 시 MongoDB 에 저장 필요.
 	// cr.AddFunc("* * * * */1 *")
-
-	log.Println(nc)
+	cr.Start()
 
 	go ReplyNats("ocpp/v16/chargepoints")
 	go ReplyNats("ocpp/v16/idtags")
 
-	go SubscribeNats("ocpp/v16/MeterValue")
+	go SubscribeNats("ocpp/v16/MeterValues")
+	go SubscribeNats("ocpp/v16/BootNotification")
+	go SubscribeNats("ocpp/v16/StartTransaction")
+	go SubscribeNats("ocpp/v16/StopTransaction")
+	go SubscribeNats("ocpp/v16/StatusNotification")
 
 	router := setupRouter()
 	log.Println("[SERVER] => Backend Admin application is listening on port " + port)

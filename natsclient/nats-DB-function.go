@@ -7,7 +7,6 @@ import (
 
 	"github.com/Youn-sik/KSCONNECT_ADMIN/database"
 	v16 "github.com/aliml92/ocpp/v16"
-	"github.com/bdwilliams/go-jsonify/jsonify"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -17,23 +16,49 @@ var MysqlClient *sql.DB
 
 // MongoClient = database.NewMongodbConnection()
 // conn := MongoClient.Database("Admin_Service").Collection("request_charge_device")
+// defer conn.Close()
 // MysqlClient = database.NewMysqlConnection()
-// defer MongoDB.Close()
-// defer MYSQL.Close()
+// defer MysqlClient.Close()
 
 func UpdateMeterValue() {
-	rows, err := MysqlClient.Query("select * from charge_device where status = 'I'")
+	log.Println("---UpdateMeterValueFunc---")
+	MysqlClient = database.NewMysqlConnection()
+	defer MysqlClient.Close()
+
+	rows, err := MysqlClient.Query("select station_id, device_id from charge_device where status = 'I'")
 	if err != nil {
 		log.Fatal(err)
 		panic(err)
-	}
-	resultJson := jsonify.Jsonify(rows)
-	if len(resultJson) == 0 {
-		log.Println("From Mongo To Mysql Meter Value Update Block1111")
-		return
 	} else {
-		// Get MongoDB And Update
-		log.Println("From Mongo To Mysql Meter Value Update Block2222")
+		for rows.Next() {
+			var station_id string
+			var device_id string
+			err := rows.Scan(&station_id, &device_id)
+			if err != nil {
+				log.Println(err)
+			} else {
+				// log.Println(station_id, device_id)
+				// Get MongoDB Data And MYSQL Update - ChargePointId(station_id), ConnectorId(device_id) 비교
+				MongoClient = database.NewMongodbConnection()
+				conn := MongoClient.Database("Admin_Service").Collection("ocpp_MeterValues")
+
+				cursor, err := conn.Find(context.TODO(), bson.M{})
+				if err != nil {
+					log.Println(err)
+				} else {
+					for cursor.Next(context.TODO()) {
+						var elem bson.M
+						err := cursor.Decode(&elem)
+						if err != nil {
+							log.Println(err)
+						} else {
+							log.Println(elem)
+						}
+					}
+				}
+			}
+		}
+		return
 	}
 }
 
