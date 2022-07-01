@@ -170,21 +170,40 @@ func UserUpdate(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	_, err = conn1.Query("update user set id = ?, password = ?, name = ?, email = ?, mobile = ?, address = ?, car_model = ?, car_number = ?, "+
-		"payment_card_company = ?, payment_card_number = ?, membership_card_number = ?, point = ?, rfid = ? where uid = ?",
-		reqData.Id, reqData.Password, reqData.Name, reqData.Email, reqData.Mobile, reqData.Address, reqData.Car_model, reqData.Car_number,
-		reqData.Payment_card_company, reqData.Payment_card_number, reqData.Membership_card_number, reqData.Point, reqData.Rfid, reqData.Uid)
-	if err != nil {
-		log.Println(err)
-		send_data.result = "false"
-		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
-		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+	if reqData.Password == "" {
+		_, err = conn1.Query("update user set id = ?, name = ?, email = ?, mobile = ?, address = ?, car_model = ?, car_number = ?, "+
+			"payment_card_company = ?, payment_card_number = ?, membership_card_number = ?, point = ?, rfid = ? where uid = ?",
+			reqData.Id, reqData.Name, reqData.Email, reqData.Mobile, reqData.Address, reqData.Car_model, reqData.Car_number,
+			reqData.Payment_card_company, reqData.Payment_card_number, reqData.Membership_card_number, reqData.Point, reqData.Rfid, reqData.Uid)
+		if err != nil {
+			log.Println(err)
+			send_data.result = "false"
+			send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
+			c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		} else {
+			// log.Println(rows)
+			send_data.result = "true"
+			send_data.errStr = ""
+			c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		}
 	} else {
-		// log.Println(rows)
-		send_data.result = "true"
-		send_data.errStr = ""
-		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		_, err = conn1.Query("update user set id = ?, password = ?, name = ?, email = ?, mobile = ?, address = ?, car_model = ?, car_number = ?, "+
+			"payment_card_company = ?, payment_card_number = ?, membership_card_number = ?, point = ?, rfid = ? where uid = ?",
+			reqData.Id, reqData.Password, reqData.Name, reqData.Email, reqData.Mobile, reqData.Address, reqData.Car_model, reqData.Car_number,
+			reqData.Payment_card_company, reqData.Payment_card_number, reqData.Membership_card_number, reqData.Point, reqData.Rfid, reqData.Uid)
+		if err != nil {
+			log.Println(err)
+			send_data.result = "false"
+			send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
+			c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		} else {
+			// log.Println(rows)
+			send_data.result = "true"
+			send_data.errStr = ""
+			c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		}
 	}
+
 }
 
 func UserDelete(c *gin.Context) {
@@ -470,7 +489,7 @@ func MembershipCardRequestList(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("select * from request_user_membership_card")
+	rows, err := conn1.Query("select request_uid, request_time, request_way, request_reason, name, car_number, id from request_user_membership_card inner join user on request_uid = uid")
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
