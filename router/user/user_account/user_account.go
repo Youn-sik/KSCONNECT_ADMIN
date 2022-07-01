@@ -57,10 +57,11 @@ type DeleteReq struct {
 }
 
 type MembershipCardCreateReq struct {
-	Request_uid    int
+	Id             string
 	Request_way    string
 	Request_status string
 	Request_reason string
+	Address        string
 }
 
 type MembershipCardUpdateReq struct {
@@ -69,6 +70,7 @@ type MembershipCardUpdateReq struct {
 	Request_way            string
 	Request_status         string
 	Request_reason         string
+	Address                string
 }
 
 type MembershipCardDeleteReq struct {
@@ -226,7 +228,8 @@ func MembershipCardList(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("select * from user_membership_card")
+	rows, err := conn1.Query("select request_uid, user_membership_card.membership_card_number, request_way, request_status, user_membership_card.address, " +
+		"request_time, request_reason , name, car_number from user_membership_card  inner join user on request_uid = uid")
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
@@ -239,6 +242,29 @@ func MembershipCardList(c *gin.Context) {
 		send_data.errStr = ""
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr, "users": resultJson})
 	}
+}
+
+func getUserUid(id string) int {
+	send_uid := 0
+
+	conn1 := database.NewMysqlConnection()
+	defer conn1.Close()
+
+	rows, err := conn1.Query("select uid from user where id = ?", id)
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	for rows.Next() {
+		var uid int
+		err = rows.Scan(&uid)
+		if err != nil {
+			log.Println(err)
+			return -1
+		}
+		send_uid = uid
+	}
+	return send_uid
 }
 
 func MembershipCardCreate(c *gin.Context) {
@@ -255,6 +281,20 @@ func MembershipCardCreate(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	}
 
+	userUid := getUserUid(reqData.Id)
+	switch userUid {
+	case 0:
+		send_data.result = "false"
+		send_data.errStr = "존재하지 않는 아이디입니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
+	case -1:
+		send_data.result = "false"
+		send_data.errStr = "아이디를 가져오는 중 문제가 발생하였습니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
+	}
+
 	ntime := time.Now().Format(time.RFC3339)
 	ntime = ntime[:19]
 
@@ -268,7 +308,7 @@ func MembershipCardCreate(c *gin.Context) {
 		random_value = "0" + random_value
 	}
 
-	uid_value := strconv.Itoa(reqData.Request_uid)
+	uid_value := strconv.Itoa(userUid)
 	switch len(uid_value) {
 	case 1:
 		uid_value = "000" + uid_value
@@ -287,8 +327,8 @@ func MembershipCardCreate(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	_, err = conn1.Query("insert into user_membership_card (request_uid, membership_card_number, request_way, request_status, request_time, request_reason) value (?,?,?,?,?,?)",
-		reqData.Request_uid, membership_card_number, reqData.Request_way, reqData.Request_status, ntime, reqData.Request_reason)
+	_, err = conn1.Query("insert into user_membership_card (request_uid, membership_card_number, request_way, request_status, request_time, request_reason, address) value (?,?,?,?,?,?,?)",
+		userUid, membership_card_number, reqData.Request_way, reqData.Request_status, ntime, reqData.Request_reason, reqData.Address)
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
@@ -319,8 +359,8 @@ func MembershipCardUpdate(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	_, err = conn1.Query("update user_membership_card set membership_card_number = ?, request_way = ?, request_status = ?, request_reason = ? where request_uid = ?",
-		reqData.Membership_card_number, reqData.Request_way, reqData.Request_status, reqData.Request_reason, reqData.Request_uid)
+	_, err = conn1.Query("update user_membership_card set request_way = ?, request_status = ?, request_reason = ?, address = ? where request_uid = ?",
+		reqData.Request_way, reqData.Request_status, reqData.Request_reason, reqData.Address, reqData.Request_uid)
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
