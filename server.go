@@ -1,7 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
@@ -9,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Youn-sik/KSCONNECT_ADMIN/database"
+	"github.com/Youn-sik/KSCONNECT_ADMIN/setting"
 	v16 "github.com/aliml92/ocpp/v16"
 	"go.mongodb.org/mongo-driver/bson"
 
@@ -42,6 +47,7 @@ type GenBootNotificationReq struct {
 }
 type GenStartTransactionReq struct {
 	ChargePointId string                  `json:"id"`
+	TransactionId int                     `json:"transactionId"`
 	Payload       v16.StartTransactionReq `json:"payload,omitempty"`
 }
 type GenStopTransactionReq struct {
@@ -51,6 +57,28 @@ type GenStopTransactionReq struct {
 type GenStatusNotificationReq struct {
 	ChargePointId string                    `json:"id"`
 	Payload       v16.StatusNotificationReq `json:"payload,omitempty"`
+}
+
+type ResultTransaction struct {
+	StartTimestamp string      `json:"StartTimestamp"`
+	StopTimestamp  string      `json:"StopTimestamp"`
+	Transaction    Transaction `json:"Transaction"`
+	Id             int         `json:"_id"`
+}
+type Transaction struct {
+	Chargepointid string  `json:"chargepointid"`
+	Payload       Payload `json:"payload"`
+	Transactionid int     `json:"transactionid"`
+}
+type Payload struct {
+	Connectorid     int    `json:"connectorid"`
+	Idtag           string `json:"idtag"`
+	MeterStop       int    `json:"meterStop"`
+	Meterstart      int    `json:"meterstart"`
+	Reason          string `json:"reason"`
+	Reservationid   int    `json:"reservationid"`
+	Timestamp       string `json:"timestamp"`
+	Transactiondata string `json:"transactiondata"`
 }
 
 var nc *n.NatsClient
@@ -335,9 +363,11 @@ func SubscribeNats(subject string) {
 				wg.Done()
 			} else {
 				log.Println(result)
-				// MYSQL device status Y
 				wg.Done()
 			}
+
+			// MYSQL station status Y ?
+			// 처리 어떻게 할지 생각 해 보기..
 		}
 	case "ocpp/v16/StartTransaction":
 		{
@@ -351,23 +381,34 @@ func SubscribeNats(subject string) {
 			s := <-ch
 			log.Println("===" + subject + "===")
 			log.Println(s)
+
+			// FCM PUSH
+			go fcm_push("충전이 시작되었습니다.")
+
 			// MongoDB Save
 			ntime := time.Now().Format(time.RFC3339)
 			ntime = ntime[:19]
 			client := database.NewMongodbConnection()
-			conn := client.Database("Admin_Service").Collection("ocpp_StartTransaction")
-			result, err := conn.InsertOne(context.TODO(), bson.D{
-				{Key: "BootNotification", Value: s},
-				{Key: "Timestamp", Value: ntime},
+			conn := client.Database("Admin_Service").Collection("ocpp_Transaction")
+			_, err = conn.InsertOne(context.TODO(), bson.D{
+				{Key: "Transaction", Value: s},
+				{Key: "StartTimestamp", Value: ntime},
 			})
 			if err != nil {
 				log.Println(err)
 				wg.Done()
-			} else {
-				log.Println(result)
-				// MYSQL device status I, Mobile Service Alarm(FCM)
+			}
+
+			// MYSQL device status I
+			// 문제 있음 => device_id 는 charge_device 의 PK 이고, connector id는 chargePoint 1개당 1부터 늘어나는 숫자임.
+			conn1 := database.NewMysqlConnection()
+			_, err = conn1.Query("update charge_device set status = 'I' where station_id = ? and device_number = ?", s.ChargePointId, s.Payload.ConnectorId)
+			if err != nil {
+				log.Println(err)
 				wg.Done()
 			}
+
+			wg.Done()
 		}
 	case "ocpp/v16/StopTransaction":
 		{
@@ -381,23 +422,143 @@ func SubscribeNats(subject string) {
 			s := <-ch
 			log.Println("===" + subject + "===")
 			log.Println(s)
+
+			// FCM PUSH
+			go fcm_push("충전이 완료되었습니다.")
+
 			// MongoDB Save
 			ntime := time.Now().Format(time.RFC3339)
 			ntime = ntime[:19]
+
 			client := database.NewMongodbConnection()
-			conn := client.Database("Admin_Service").Collection("ocpp_StopTransaction")
-			result, err := conn.InsertOne(context.TODO(), bson.D{
-				{Key: "BootNotification", Value: s},
-				{Key: "Timestamp", Value: ntime},
-			})
+			conn := client.Database("Admin_Service").Collection("ocpp_Transaction")
+
+			// transactionId := strconv.Itoa(*s.Payload.TransactionId)
+			// log.Println(transactionId)
+			filter := bson.M{"Transaction.transactionid": *s.Payload.TransactionId}
+			value := bson.D{{"$set", bson.D{{"Transaction.payload.meterStop", s.Payload.MeterStop}, {"Transaction.payload.reason", s.Payload.Reason}, {"Transaction.payload.transactiondata", s.Payload.TransactionData}, {"StopTimestamp", ntime}}}}
+
+			_, err = conn.UpdateOne(context.TODO(), filter, value)
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			}
+
+			var transaction ResultTransaction
+			filter = bson.M{"Transaction.transactionid": *s.Payload.TransactionId}
+			cursor, err := conn.Find(context.TODO(), filter)
 			if err != nil {
 				log.Println(err)
 				wg.Done()
 			} else {
-				log.Println(result)
-				// MYSQL device status Y, charge_device의 충전량 갱신, User Service Payment Request, Mobile Service Alarm(FCM)
+				for cursor.Next(context.TODO()) {
+					var elem bson.M
+					if err := cursor.Decode(&elem); err != nil {
+						log.Println(err)
+						wg.Done()
+					}
+					result, _ := json.Marshal(elem)
+					json.Unmarshal(result, &transaction)
+				}
+			}
+
+			// MYSQL device status Y
+			// MYSQL device usage value add
+			conn1 := database.NewMysqlConnection()
+			defer conn1.Close()
+
+			// 문제 있음 => device_id 는 charge_device 의 PK 이고, connector id는 chargePoint 1개당 1부터 늘어나는 숫자임.
+			_, err = conn1.Query("update charge_device set status = 'Y' where station_id = ? and device_number = ?", transaction.Transaction.Chargepointid, transaction.Transaction.Payload.Connectorid)
+			if err != nil {
+				log.Println(err)
 				wg.Done()
 			}
+			// 문제 있음 => device_id 는 charge_device 의 PK 이고, connector id는 chargePoint 1개당 1부터 늘어나는 숫자임.
+			rows, err := conn1.Query("select charge_device.usage from charge_device where station_id = ? and device_number = ?", transaction.Transaction.Chargepointid, transaction.Transaction.Payload.Connectorid)
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			}
+			for rows.Next() {
+				var usage int
+				err = rows.Scan(&usage)
+				if err != nil {
+					log.Println(err)
+					wg.Done()
+				} else {
+					totalUsage := usage + (transaction.Transaction.Payload.MeterStop - transaction.Transaction.Payload.Meterstart)
+					rows, err = conn1.Query("update charge_device set charge_device.usage = ? where station_id = ? and device_number = ?", totalUsage, transaction.Transaction.Chargepointid, transaction.Transaction.Payload.Connectorid)
+					if err != nil {
+						log.Println(err)
+						wg.Done()
+					}
+				}
+			}
+
+			// User Service Payment Request(getBillingKey)
+			config, err := setting.LoadConfigSettingJSON()
+			if err != nil {
+				log.Fatal(err)
+				panic(err)
+			}
+			postBody, _ := json.Marshal(map[string]string{
+				"cardNumber":          "5327501015763628",
+				"cardExpirationYear":  "27",
+				"cardExpirationMonth": "01",
+				"cardPassword":        "05",
+			})
+			responseBody := bytes.NewBuffer(postBody)
+			resp, err := http.Post("http://"+config.User_service.Host+":"+config.User_service.Port+"/payment/billingkey", "application/json", responseBody)
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			}
+			var billingKey struct {
+				BillingKey string `json:"billingKey"`
+			}
+			body, _ := ioutil.ReadAll(resp.Body)
+			json.Unmarshal(body, &billingKey)
+
+			// User Service Payment Request(pay)
+			// getChargeFee
+			postBody, _ = json.Marshal(map[string]string{
+				"station_id": transaction.Transaction.Chargepointid,
+			})
+			responseBody = bytes.NewBuffer(postBody)
+			resp, err = http.Post("http://"+config.User_service.Host+":"+config.User_service.Port+"/charge_station/charge_price", "application/json", responseBody)
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			}
+			var price struct {
+				Price float32 `json:"charge_price"`
+			}
+			body, _ = ioutil.ReadAll(resp.Body)
+			json.Unmarshal(body, &price)
+
+			amount := (price.Price * float32(transaction.Transaction.Payload.MeterStop-transaction.Transaction.Payload.Meterstart))
+			amountStr := fmt.Sprintf("%f", amount)
+			// 테스트에 0 값이여서 실데이터 넣으면 필수 파라메터 누락이라고 뜸
+			postBody, _ = json.Marshal(map[string]string{
+				"billingKey": billingKey.BillingKey,
+				"amount":     amountStr,
+				// "amount":    "1000",
+				"orderID":   "10",
+				"orderName": "전기차 충전 요금 정산",
+			})
+			responseBody = bytes.NewBuffer(postBody)
+			resp, err = http.Post("http://"+config.User_service.Host+":"+config.User_service.Port+"/payment/pay", "application/json", responseBody)
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			}
+			respBody, err := ioutil.ReadAll(resp.Body)
+			log.Println(string(respBody))
+			log.Printf("%+v\n", resp.Body)
+
+			// 결제 내역 (빌링 키, 결제 요청에 대해 MongoDB에 저장)
+
+			wg.Done()
 		}
 	case "ocpp/v16/StatusNotification":
 		{
@@ -417,7 +578,7 @@ func SubscribeNats(subject string) {
 			client := database.NewMongodbConnection()
 			conn := client.Database("Admin_Service").Collection("ocpp_StatusNotification")
 			result, err := conn.InsertOne(context.TODO(), bson.D{
-				{Key: "BootNotification", Value: s},
+				{Key: "StatusNotification", Value: s},
 				{Key: "Timestamp", Value: ntime},
 			})
 			if err != nil {
@@ -431,6 +592,29 @@ func SubscribeNats(subject string) {
 		}
 	}
 	wg.Wait()
+}
+
+func fcm_push(title string) {
+	config, err := setting.LoadConfigSettingJSON()
+	if err != nil {
+		log.Fatal(err)
+		panic(err)
+	}
+
+	postBody, _ := json.Marshal(map[string]string{
+		"title": title,
+	})
+	responseBody := bytes.NewBuffer(postBody)
+	resp, err := http.Post("http://"+config.User_service.Host+":"+config.User_service.Port+"/fcm/push", "application/json", responseBody)
+	if err != nil {
+		log.Println(err)
+	}
+	bytes, _ := ioutil.ReadAll(resp.Body)
+	str := string(bytes)
+	// 코드 수정 필요
+	if str != `{"result":"true"}` {
+		log.Println("****FCM PUSH ERROR****")
+	}
 }
 
 func main() {

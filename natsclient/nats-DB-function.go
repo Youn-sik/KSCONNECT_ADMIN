@@ -38,11 +38,11 @@ func UpdateMeterValue() {
 				log.Println(err)
 			} else {
 				// log.Println(station_id, device_id)
-				// Get MongoDB Data And MYSQL Update - ChargePointId(station_id), ConnectorId(device_id) 비교
+				// Get MongoDB Data And MYSQL Update - ChargePointId(station_id), ConnectorId(device_number) 비교
 				MongoClient = database.NewMongodbConnection()
 				conn := MongoClient.Database("Admin_Service").Collection("ocpp_MeterValues")
 
-				cursor, err := conn.Find(context.TODO(), bson.M{})
+				cursor, err := conn.Find(context.TODO(), bson.M{"$and": []bson.M{{"MeterValues.chargepointid": "1"}, {"MeterValues.payload.connectorid": 1}}})
 				if err != nil {
 					log.Println(err)
 				} else {
@@ -83,4 +83,4 @@ func MeterValuesReq(GmeterValueReq v16.MeterValuesReq) {
 
 }
 
-// RDB Charge Device 충전량 값 update => stop transaction 때 (meterStop - meterStart) 만큼 작업하기
+// RDB Charge Device 충전량 값 update(기존 값 + 현재 값) => stop transaction 때 (meterStop - meterStart) 만큼 작업하기
