@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,6 +15,7 @@ import (
 	"github.com/Youn-sik/KSCONNECT_ADMIN/database"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/setting"
 	v16 "github.com/aliml92/ocpp/v16"
+	"github.com/bdwilliams/go-jsonify/jsonify"
 	"go.mongodb.org/mongo-driver/bson"
 
 	// "github.com/Youn-sik/KSCONNECT_ADMIN/natsclient"
@@ -118,6 +119,16 @@ func CORSMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+func randomString(n int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	sb := strings.Builder{}
+	sb.Grow(n)
+	for i := 0; i < n; i++ {
+		sb.WriteByte(charset[rand.Intn(len(charset))])
+	}
+	return sb.String()
 }
 
 func setupRouter() *gin.Engine {
@@ -536,14 +547,16 @@ func SubscribeNats(subject string) {
 			body, _ = ioutil.ReadAll(resp.Body)
 			json.Unmarshal(body, &price)
 
-			amount := (price.Price * float32(transaction.Transaction.Payload.MeterStop-transaction.Transaction.Payload.Meterstart))
-			amountStr := fmt.Sprintf("%f", amount)
+			// amount := (price.Price * float32(transaction.Transaction.Payload.MeterStop-transaction.Transaction.Payload.Meterstart))
+			// amountStr := fmt.Sprintf("%f", amount)
 			// 테스트에 0 값이여서 실데이터 넣으면 필수 파라메터 누락이라고 뜸
+			// orderID 값 랜덤 값으로
+			orderId := randomString(8)
 			postBody, _ = json.Marshal(map[string]string{
 				"billingKey": billingKey.BillingKey,
-				"amount":     amountStr,
-				// "amount":    "1000",
-				"orderID":   "10",
+				// "amount":     amountStr,
+				"amount":    "1000",
+				"orderID":   string(orderId),
 				"orderName": "전기차 충전 요금 정산",
 			})
 			responseBody = bytes.NewBuffer(postBody)
@@ -553,10 +566,25 @@ func SubscribeNats(subject string) {
 				wg.Done()
 			}
 			respBody, err := ioutil.ReadAll(resp.Body)
-			log.Println(string(respBody))
-			log.Printf("%+v\n", resp.Body)
+			// log.Println(string(respBody))
 
-			// 결제 내역 (빌링 키, 결제 요청에 대해 MongoDB에 저장)
+			// 결제 내역 (유저 정보, 빌링 키, 결제 요청 리턴에 대해 MongoDB에 저장)
+			rows, err = conn1.Query("select * from user where uid = ?", transaction.Transaction.Payload.Idtag)
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			}
+			userInfo := jsonify.Jsonify(rows)
+
+			conn = client.Database("Admin_Service").Collection("service_payment")
+			_, err = conn.InsertOne(context.TODO(), bson.D{
+				{Key: "Payment", Value: string(respBody)},
+				{Key: "User", Value: userInfo[0]},
+			})
+			if err != nil {
+				log.Println(err)
+				wg.Done()
+			}
 
 			wg.Done()
 		}
