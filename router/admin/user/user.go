@@ -91,7 +91,6 @@ func Auth(c *gin.Context) {
 		c.Abort()
 		return
 	}
-
 }
 
 func GetUserInfo() ([]string, error) {

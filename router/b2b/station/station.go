@@ -97,6 +97,26 @@ type RequestSubmitReq struct {
 	Request_value  string `json:"request_value"` // permitted or reject
 }
 
+func getDeviceCount(station_id int) int {
+	conn1 := database.NewMysqlConnection()
+	defer conn1.Close()
+	var device_cnt int
+
+	rows, err := conn1.Query("select count(device_id) as device_cnt from charge_device where station_id = ?", station_id)
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	for rows.Next() {
+		err := rows.Scan(&device_cnt)
+		if err != nil {
+			log.Println(err)
+			return -1
+		}
+	}
+	return device_cnt
+}
+
 func StationList(c *gin.Context) {
 	var send_data struct {
 		result string
@@ -106,18 +126,51 @@ func StationList(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("select * from charge_station")
+	rows, err := conn1.Query("select cs.station_id, cs.name, cs.address, c.name, c.company_id from charge_station as cs inner join company as c on c.company_id = cs.company_id")
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	} else {
-		resultJson := jsonify.Jsonify(rows)
+		type Send_result struct {
+			Station_id      int    `json:"station_id"`
+			Station_name    string `json:"station_name"`
+			Station_address string `json:"station_address"`
+			Company_name    string `json:"company_name"`
+			Company_id      int    `json:"company_id"`
+			Device_cnt      int    `json:"device_cnt"`
+		}
+		var send_arr []Send_result
+		var send_result Send_result
+
+		for rows.Next() {
+			// var station_id int
+			// var station_name string
+			// var station_address string
+			// var company_name string
+			// var company_id int
+			// var device_cnt int
+
+			err = rows.Scan(&send_result.Station_id, &send_result.Station_name, &send_result.Station_address, &send_result.Company_name, &send_result.Company_id)
+			if err != nil {
+				log.Println(err)
+				send_data.result = "false"
+				send_data.errStr = "Query Parsing 중 문제가 발생하였습니다."
+				c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+				return
+			} else {
+				send_result.Device_cnt = getDeviceCount(send_result.Station_id)
+				send_arr = append(send_arr, send_result)
+			}
+		}
+		// log.Printf("%+v\n", send_arr)
+		// resultJson := jsonify.Jsonify(rows)
 
 		send_data.result = "true"
 		send_data.errStr = ""
-		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr, "charge_stations": resultJson})
+		// c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr, "charge_stations": resultJson})
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr, "charge_stations": send_arr})
 	}
 }
 
