@@ -286,6 +286,39 @@ func getUserUid(id string) int {
 	return send_uid
 }
 
+func getMembershipCardNumber(uid int) string {
+	ntime := time.Now().Format(time.RFC3339)
+	ntime = ntime[:19]
+
+	random_value := strconv.Itoa(rand.Intn(9999))
+	switch len(random_value) {
+	case 1:
+		random_value = "000" + random_value
+	case 2:
+		random_value = "00" + random_value
+	case 3:
+		random_value = "0" + random_value
+	}
+
+	uid_value := strconv.Itoa(uid)
+	switch len(uid_value) {
+	case 1:
+		uid_value = "000" + uid_value
+	case 2:
+		uid_value = "00" + uid_value
+	case 3:
+		uid_value = "0" + uid_value
+	}
+
+	membership_card_number1 := ntime[:4]
+	membership_card_number2 := ntime[5:7] + ntime[8:10]
+	membership_card_number3 := random_value
+	membership_card_number4 := uid_value
+	membership_card_number := membership_card_number1 + "-" + membership_card_number2 + "-" + membership_card_number3 + "-" + membership_card_number4
+
+	return membership_card_number
+}
+
 func MembershipCardCreate(c *gin.Context) {
 	var send_data struct {
 		result string
@@ -317,31 +350,32 @@ func MembershipCardCreate(c *gin.Context) {
 	ntime := time.Now().Format(time.RFC3339)
 	ntime = ntime[:19]
 
-	random_value := strconv.Itoa(rand.Intn(9999))
-	switch len(random_value) {
-	case 1:
-		random_value = "000" + random_value
-	case 2:
-		random_value = "00" + random_value
-	case 3:
-		random_value = "0" + random_value
-	}
+	// random_value := strconv.Itoa(rand.Intn(9999))
+	// switch len(random_value) {
+	// case 1:
+	// 	random_value = "000" + random_value
+	// case 2:
+	// 	random_value = "00" + random_value
+	// case 3:
+	// 	random_value = "0" + random_value
+	// }
 
-	uid_value := strconv.Itoa(userUid)
-	switch len(uid_value) {
-	case 1:
-		uid_value = "000" + uid_value
-	case 2:
-		uid_value = "00" + uid_value
-	case 3:
-		uid_value = "0" + uid_value
-	}
+	// uid_value := strconv.Itoa(userUid)
+	// switch len(uid_value) {
+	// case 1:
+	// 	uid_value = "000" + uid_value
+	// case 2:
+	// 	uid_value = "00" + uid_value
+	// case 3:
+	// 	uid_value = "0" + uid_value
+	// }
 
-	membership_card_number1 := ntime[:4]
-	membership_card_number2 := ntime[5:7] + ntime[8:10]
-	membership_card_number3 := random_value
-	membership_card_number4 := uid_value
-	membership_card_number := membership_card_number1 + "-" + membership_card_number2 + "-" + membership_card_number3 + "-" + membership_card_number4
+	// membership_card_number1 := ntime[:4]
+	// membership_card_number2 := ntime[5:7] + ntime[8:10]
+	// membership_card_number3 := random_value
+	// membership_card_number4 := uid_value
+	// membership_card_number := membership_card_number1 + "-" + membership_card_number2 + "-" + membership_card_number3 + "-" + membership_card_number4
+	membership_card_number := getMembershipCardNumber(userUid)
 
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
@@ -353,12 +387,22 @@ func MembershipCardCreate(c *gin.Context) {
 		send_data.result = "false"
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
-	} else {
-		// log.Println(rows)
-		send_data.result = "true"
-		send_data.errStr = ""
-		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
 	}
+
+	_, err = conn1.Query("update user set membership_card_number = ? where uid = ?", membership_card_number, userUid)
+	if err != nil {
+		log.Println(err)
+		send_data.result = "false"
+		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
+	}
+
+	send_data.result = "true"
+	send_data.errStr = ""
+	c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+
 }
 
 func MembershipCardUpdate(c *gin.Context) {
@@ -416,12 +460,20 @@ func MembershipCardDelete(c *gin.Context) {
 		send_data.result = "false"
 		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
-	} else {
-		// log.Println(rows)
-		send_data.result = "true"
-		send_data.errStr = ""
-		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
 	}
+	_, err = conn1.Query("update user set membership_card_number=NULL where uid = ?", reqData.Request_uid)
+	if err != nil {
+		log.Println(err)
+		send_data.result = "false"
+		send_data.errStr = "DB Query 실행 중 문제가 발생하였습니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
+	}
+
+	send_data.result = "true"
+	send_data.errStr = ""
+	c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 }
 
 func MembershipCardRequest(c *gin.Context) {
@@ -489,7 +541,7 @@ func MembershipCardRequestList(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("select request_uid, request_time, request_way, request_reason, name, car_number, id from request_user_membership_card inner join user on request_uid = uid")
+	rows, err := conn1.Query("select request_id, request_uid, request_time, request_way, request_reason, name, car_number, id from request_user_membership_card inner join user on request_uid = uid")
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
@@ -525,7 +577,22 @@ func MembershipCardRequestSubmit(c *gin.Context) {
 	}
 
 	//To user_service, it's permitted or reject
-	body, _ := json.Marshal(reqData)
+	var reqBody struct {
+		ReqData              MembershipCardRequestSubmitReq `json:"reqData"`
+		MembershipCardNumber string                         `json:"membershipCardNumber"`
+	}
+	membershipCardNumber := getMembershipCardNumber(reqData.Request_uid)
+
+	reqBody.ReqData = reqData
+	reqBody.MembershipCardNumber = membershipCardNumber
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		log.Println(err)
+		send_data.result = "false"
+		send_data.errStr = "Body parsing 문제가 발생하였습니다.."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+	}
+
 	resp, err := http.Post("http://"+config.User_service.Host+":"+config.User_service.Port+"/user/membership_card_request_submit", "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		log.Println(err)
@@ -555,9 +622,10 @@ func MembershipCardRequestSubmit(c *gin.Context) {
 
 			// log.Println(respStr)
 			// log.Println(respJson)
+			log.Println(respJson["result"])
 
 			// 이후 resp["result"] 체크 후 정상 MongoDB 에 Logging / Mysql에 Delete
-			if respJson["result"] != "false" {
+			if respJson["result"] == "false" {
 				log.Println(respJson["errStr"])
 				send_data.result = "false"
 				send_data.errStr = "User Service 의 Response 가 올바르지 않습니다. => " + respJson["errStr"]
