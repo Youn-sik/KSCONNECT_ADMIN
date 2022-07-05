@@ -102,6 +102,10 @@ type Alert struct {
 	Title     string `json:"Title"`
 	Timestamp string `json:"Timestamp"`
 	Uid       string `json:"Uid"`
+	Station   string `json:"Station"`
+	Device    int    `json:"Device"`
+	Usage     int    `json:"Usage,omitempty"`
+	Payment   string `json:"Payment,omitempty"`
 }
 
 func UserList(c *gin.Context) {
@@ -776,7 +780,6 @@ func InquiryBoardReply(c *gin.Context) {
 }
 
 func AlertList(c *gin.Context) {
-	alert := Alert{}
 	var send_data struct {
 		result string
 		errStr string
@@ -808,6 +811,7 @@ func AlertList(c *gin.Context) {
 	}
 	var alertListArr []Alert
 	for cursor.Next(context.TODO()) {
+		alert := Alert{}
 		var elem bson.M
 		if err := cursor.Decode(&elem); err != nil {
 			log.Println(err)

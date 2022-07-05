@@ -419,7 +419,9 @@ func SubscribeNats(subject string) {
 				// MongoDB alert save
 				conn = client.Database("Admin_Service").Collection("service_alert")
 				_, err = conn.InsertOne(context.TODO(), bson.D{
-					{Key: "Title", Value: "충전이 시작되었습니다."},
+					{Key: "Title", Value: "충전 시작"},
+					{Key: "Station", Value: s.ChargePointId},
+					{Key: "Device", Value: s.Payload.ConnectorId},
 					{Key: "Timestamp", Value: ntime},
 					{Key: "Uid", Value: s.Payload.IdTag},
 				})
@@ -489,7 +491,10 @@ func SubscribeNats(subject string) {
 				// MongoDB alert save
 				conn = client.Database("Admin_Service").Collection("service_alert")
 				_, err = conn.InsertOne(context.TODO(), bson.D{
-					{Key: "Title", Value: "충전이 종료되었습니다."},
+					{Key: "Title", Value: "충전 완료"},
+					{Key: "Station", Value: transaction.Transaction.Chargepointid},
+					{Key: "Device", Value: transaction.Transaction.Payload.Connectorid},
+					{Key: "Usage", Value: (transaction.Transaction.Payload.MeterStop - transaction.Transaction.Payload.Meterstart)},
 					{Key: "Timestamp", Value: ntime},
 					{Key: "Uid", Value: s.Payload.IdTag},
 				})
@@ -608,7 +613,10 @@ func SubscribeNats(subject string) {
 				// MongoDB alert save
 				conn = client.Database("Admin_Service").Collection("service_alert")
 				_, err = conn.InsertOne(context.TODO(), bson.D{
-					{Key: "Title", Value: "결제가 완료되었습니다."},
+					{Key: "Title", Value: "결제 완료"},
+					{Key: "Station", Value: transaction.Transaction.Chargepointid},
+					{Key: "Device", Value: transaction.Transaction.Payload.Connectorid},
+					{Key: "Payment", Value: amountStr},
 					{Key: "Timestamp", Value: ntime},
 					{Key: "Uid", Value: s.Payload.IdTag},
 				})
