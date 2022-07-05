@@ -16,6 +16,7 @@ import (
 	"github.com/bdwilliams/go-jsonify/jsonify"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type CreateReq struct {
@@ -94,6 +95,13 @@ type MembershipCardRequestSubmitReq struct {
 type InquiryBoardReplyReq struct {
 	Inquiry_id int
 	Reply      string
+}
+
+type Alert struct {
+	Id        string `json:"_id"`
+	Title     string `json:"Title"`
+	Timestamp string `json:"Timestamp"`
+	Uid       string `json:"Uid"`
 }
 
 func UserList(c *gin.Context) {
@@ -765,4 +773,54 @@ func InquiryBoardReply(c *gin.Context) {
 		send_data.errStr = ""
 		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
 	}
+}
+
+func AlertList(c *gin.Context) {
+	alert := Alert{}
+	var send_data struct {
+		result string
+		errStr string
+	}
+	var Uid struct {
+		Uid string `json:"uid"`
+	}
+	err := c.Bind(&Uid)
+	if err != nil {
+		log.Println(err)
+		send_data.result = "false"
+		send_data.errStr = "Body parsing 문제가 발생하였습니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+	}
+
+	client := database.NewMongodbConnection()
+	conn := client.Database("Admin_Service").Collection("service_alert")
+	filter := bson.M{"Uid": Uid.Uid}
+	options := options.Find()
+	options.SetSort(bson.M{"Timestamp": -1})
+	options.SetLimit(20)
+	cursor, err := conn.Find(context.TODO(), filter, options)
+	if err != nil {
+		log.Println(err)
+		send_data.result = "false"
+		send_data.errStr = "Query 중 문제가 발생하였습니다."
+		c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		return
+	}
+	var alertListArr []Alert
+	for cursor.Next(context.TODO()) {
+		var elem bson.M
+		if err := cursor.Decode(&elem); err != nil {
+			log.Println(err)
+			send_data.result = "false"
+			send_data.errStr = "Query parsing 문제가 발생하였습니다."
+			c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr})
+		}
+		result, _ := json.Marshal(elem)
+		json.Unmarshal(result, &alert)
+		alertListArr = append(alertListArr, alert)
+	}
+
+	send_data.result = "true"
+	send_data.errStr = ""
+	c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr, "alert_list": alertListArr})
 }

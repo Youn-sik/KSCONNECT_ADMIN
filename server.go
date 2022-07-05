@@ -140,9 +140,11 @@ func setupRouter() *gin.Engine {
 	NAuth.POST("/user/login", func(c *gin.Context) {
 		user.Login(c)
 	})
-
 	NAuth.POST("/user/auth", func(c *gin.Context) {
 		user.Auth(c)
+	})
+	NAuth.POST("/alert_list", func(c *gin.Context) {
+		user_account.AlertList(c)
 	})
 
 	btb_service := router.Group("/btb_service")
@@ -418,7 +420,7 @@ func SubscribeNats(subject string) {
 				conn = client.Database("Admin_Service").Collection("service_alert")
 				_, err = conn.InsertOne(context.TODO(), bson.D{
 					{Key: "Title", Value: "충전이 시작되었습니다."},
-					{Key: "StartTimestamp", Value: ntime},
+					{Key: "Timestamp", Value: ntime},
 					{Key: "Uid", Value: s.Payload.IdTag},
 				})
 				if err != nil {
@@ -488,7 +490,7 @@ func SubscribeNats(subject string) {
 				conn = client.Database("Admin_Service").Collection("service_alert")
 				_, err = conn.InsertOne(context.TODO(), bson.D{
 					{Key: "Title", Value: "충전이 종료되었습니다."},
-					{Key: "StartTimestamp", Value: ntime},
+					{Key: "Timestamp", Value: ntime},
 					{Key: "Uid", Value: s.Payload.IdTag},
 				})
 				if err != nil {
@@ -607,7 +609,7 @@ func SubscribeNats(subject string) {
 				conn = client.Database("Admin_Service").Collection("service_alert")
 				_, err = conn.InsertOne(context.TODO(), bson.D{
 					{Key: "Title", Value: "결제가 완료되었습니다."},
-					{Key: "StartTimestamp", Value: ntime},
+					{Key: "Timestamp", Value: ntime},
 					{Key: "Uid", Value: s.Payload.IdTag},
 				})
 				if err != nil {
