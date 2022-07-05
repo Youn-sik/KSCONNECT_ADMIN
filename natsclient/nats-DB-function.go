@@ -9,6 +9,7 @@ import (
 	v16 "github.com/aliml92/ocpp/v16"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var MongoClient *mongo.Client
@@ -25,24 +26,26 @@ func UpdateMeterValue() {
 	MysqlClient = database.NewMysqlConnection()
 	defer MysqlClient.Close()
 
-	rows, err := MysqlClient.Query("select station_id, device_id from charge_device where status = 'I'")
+	rows, err := MysqlClient.Query("select station_id, device_number from charge_device where status = 'I'")
 	if err != nil {
 		log.Fatal(err)
 		panic(err)
 	} else {
+		MongoClient = database.NewMongodbConnection()
+		conn := MongoClient.Database("Admin_Service").Collection("ocpp_MeterValues")
 		for rows.Next() {
 			var station_id string
-			var device_id string
-			err := rows.Scan(&station_id, &device_id)
+			var device_number int
+			err := rows.Scan(&station_id, &device_number)
 			if err != nil {
 				log.Println(err)
 			} else {
-				// log.Println(station_id, device_id)
-				// Get MongoDB Data And MYSQL Update - ChargePointId(station_id), ConnectorId(device_number) 비교
-				MongoClient = database.NewMongodbConnection()
-				conn := MongoClient.Database("Admin_Service").Collection("ocpp_MeterValues")
-
-				cursor, err := conn.Find(context.TODO(), bson.M{"$and": []bson.M{{"MeterValues.chargepointid": "1"}, {"MeterValues.payload.connectorid": 1}}})
+				// Get MongoDB Data And MYSQL Update
+				fileter := bson.M{"$and": []bson.M{{"MeterValues.chargepointid": station_id}, {"MeterValues.payload.connectorid": device_number}}}
+				option := options.Find()
+				option.SetSort(bson.M{"Timestamp": -1})
+				option.SetLimit(1)
+				cursor, err := conn.Find(context.TODO(), fileter, option)
 				if err != nil {
 					log.Println(err)
 				} else {
@@ -58,6 +61,8 @@ func UpdateMeterValue() {
 				}
 			}
 		}
+
+		// update도 MongoDB logging ?
 		return
 	}
 }
