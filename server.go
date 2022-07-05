@@ -62,10 +62,10 @@ type GenStatusNotificationReq struct {
 }
 
 type ResultTransaction struct {
-	StartTimestamp string      `json:"StartTimestamp"`
-	StopTimestamp  string      `json:"StopTimestamp"`
-	Transaction    Transaction `json:"Transaction"`
-	Id             int         `json:"_id"`
+	StartTimestamp string      `json:"StartTimestamp,omitempty"`
+	StopTimestamp  string      `json:"StopTimestamp,omitempty"`
+	Transaction    Transaction `json:"Transaction,omitempty"`
+	Id             int         `json:"_id,omitempty"`
 }
 type Transaction struct {
 	Chargepointid string  `json:"chargepointid"`
@@ -467,17 +467,6 @@ func SubscribeNats(subject string) {
 					log.Println(err)
 				}
 
-				// MongoDB alert save
-				conn = client.Database("Admin_Service").Collection("service_alert")
-				_, err = conn.InsertOne(context.TODO(), bson.D{
-					{Key: "Title", Value: "충전이 종료되었습니다."},
-					{Key: "StartTimestamp", Value: ntime},
-					{Key: "Uid", Value: s.Payload.IdTag},
-				})
-				if err != nil {
-					log.Println(err)
-				}
-
 				var transaction ResultTransaction
 				filter = bson.M{"Transaction.transactionid": *s.Payload.TransactionId}
 				cursor, err := conn.Find(context.TODO(), filter)
@@ -493,6 +482,17 @@ func SubscribeNats(subject string) {
 						result, _ := json.Marshal(elem)
 						json.Unmarshal(result, &transaction)
 					}
+				}
+
+				// MongoDB alert save
+				conn = client.Database("Admin_Service").Collection("service_alert")
+				_, err = conn.InsertOne(context.TODO(), bson.D{
+					{Key: "Title", Value: "충전이 종료되었습니다."},
+					{Key: "StartTimestamp", Value: ntime},
+					{Key: "Uid", Value: s.Payload.IdTag},
+				})
+				if err != nil {
+					log.Println(err)
 				}
 
 				// MYSQL device status Y
@@ -550,6 +550,7 @@ func SubscribeNats(subject string) {
 					"station_id": transaction.Transaction.Chargepointid,
 				})
 				responseBody = bytes.NewBuffer(postBody)
+
 				resp, err = http.Post("http://"+config.User_service.Host+":"+config.User_service.Port+"/charge_station/charge_price", "application/json", responseBody)
 				if err != nil {
 					log.Println(err)
@@ -569,7 +570,7 @@ func SubscribeNats(subject string) {
 				amountStrArr := strings.Split(amountStr1, "")
 				amountStrArr[len(amountStrArr)-1] = "0"
 				amountStr := strings.Join(amountStrArr, "")
-				log.Println("결제 금액: " + amountStr)
+				// log.Println("결제 금액: " + amountStr)
 				orderId := randomString(8)
 				postBody, _ = json.Marshal(map[string]string{
 					"billingKey": billingKey.BillingKey,
