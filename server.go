@@ -414,15 +414,16 @@ func SubscribeNats(subject string) {
 					log.Println(err)
 				}
 
-				// conn = client.Database("Admin_Service").Collection("service_alert")
-				// _, err = conn.InsertOne(context.TODO(), bson.D{
-				// 	{Key: "Title", Value: "충전이 시작되었습니다."},
-				// 	{Key: "StartTimestamp", Value: ntime},
-				// 	{Key: "Uid", Value: s.Payload.IdTag},
-				// })
-				// if err != nil {
-				// 	log.Println(err)
-				// }
+				// MongoDB alert save
+				conn = client.Database("Admin_Service").Collection("service_alert")
+				_, err = conn.InsertOne(context.TODO(), bson.D{
+					{Key: "Title", Value: "충전이 시작되었습니다."},
+					{Key: "StartTimestamp", Value: ntime},
+					{Key: "Uid", Value: s.Payload.IdTag},
+				})
+				if err != nil {
+					log.Println(err)
+				}
 
 				// MYSQL device status I
 				conn1 := database.NewMysqlConnection()
@@ -462,6 +463,17 @@ func SubscribeNats(subject string) {
 				value := bson.D{{"$set", bson.D{{"Transaction.payload.meterStop", s.Payload.MeterStop}, {"Transaction.payload.reason", s.Payload.Reason}, {"Transaction.payload.transactiondata", s.Payload.TransactionData}, {"StopTimestamp", ntime}}}}
 
 				_, err = conn.UpdateOne(context.TODO(), filter, value)
+				if err != nil {
+					log.Println(err)
+				}
+
+				// MongoDB alert save
+				conn = client.Database("Admin_Service").Collection("service_alert")
+				_, err = conn.InsertOne(context.TODO(), bson.D{
+					{Key: "Title", Value: "충전이 종료되었습니다."},
+					{Key: "StartTimestamp", Value: ntime},
+					{Key: "Uid", Value: s.Payload.IdTag},
+				})
 				if err != nil {
 					log.Println(err)
 				}
@@ -553,12 +565,11 @@ func SubscribeNats(subject string) {
 				// 결제 값 소수점 들어가면 안됨 ..
 				amount := (price.Price * float32(transaction.Transaction.Payload.MeterStop-transaction.Transaction.Payload.Meterstart))
 				totamountStr := fmt.Sprintf("%f", amount)
-				// log.Println("결제 금액: " + amountStr)
 				amountStr1 := strings.Split(totamountStr, ".")[0]
 				amountStrArr := strings.Split(amountStr1, "")
 				amountStrArr[len(amountStrArr)-1] = "0"
 				amountStr := strings.Join(amountStrArr, "")
-				// log.Println(amountStr)
+				log.Println("결제 금액: " + amountStr)
 				orderId := randomString(8)
 				postBody, _ = json.Marshal(map[string]string{
 					"billingKey": billingKey.BillingKey,
@@ -586,6 +597,17 @@ func SubscribeNats(subject string) {
 				_, err = conn.InsertOne(context.TODO(), bson.D{
 					{Key: "Payment", Value: string(respBody)},
 					{Key: "User", Value: userInfo[0]},
+				})
+				if err != nil {
+					log.Println(err)
+				}
+
+				// MongoDB alert save
+				conn = client.Database("Admin_Service").Collection("service_alert")
+				_, err = conn.InsertOne(context.TODO(), bson.D{
+					{Key: "Title", Value: "결제가 완료되었습니다."},
+					{Key: "StartTimestamp", Value: ntime},
+					{Key: "Uid", Value: s.Payload.IdTag},
 				})
 				if err != nil {
 					log.Println(err)
@@ -630,7 +652,7 @@ func SubscribeNats(subject string) {
 				}
 
 				if status != "" {
-					_, err = conn1.Query("update charge_device status = ? where station_id = ? and device_number = ?", status, s.ChargePointId, s.Payload.ConnectorId)
+					_, err = conn1.Query("update charge_device set status = ? where station_id = ? and device_number = ?", status, s.ChargePointId, s.Payload.ConnectorId)
 					if err != nil {
 						log.Println(err)
 					}
