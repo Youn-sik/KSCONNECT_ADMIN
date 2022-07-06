@@ -78,17 +78,19 @@ type MembershipCardDeleteReq struct {
 }
 
 type MembershipCardRequestReq struct {
-	Request_uid    int
-	Request_way    string
-	Request_reason string
+	Request_uid     int
+	Request_way     string
+	Request_reason  string
+	Request_address string
 }
 
 type MembershipCardRequestSubmitReq struct {
-	Request_id     int    `json:"request_id"`
-	Request_uid    int    `json:"request_uid"`
-	Request_way    string `json:"request_way"`
-	Request_reason string `json:"request_reason"`
-	Request_value  string `json:"request_value"` // permitted or reject
+	Request_id      int    `json:"request_id"`
+	Request_uid     int    `json:"request_uid"`
+	Request_way     string `json:"request_way"`
+	Request_reason  string `json:"request_reason"`
+	Request_address string `json::"request_address"`
+	Request_value   string `json:"request_value"` // permitted or reject
 }
 
 type InquiryBoardReplyReq struct {
@@ -501,6 +503,7 @@ func MembershipCardRequest(c *gin.Context) {
 		{Key: "Request_uid", Value: reqData.Request_uid},
 		{Key: "Request_way", Value: reqData.Request_way},
 		{Key: "Request_reason", Value: reqData.Request_reason},
+		{Key: "Request_address", Value: reqData.Request_address},
 		{Key: "Request_value", Value: "wating"},
 		{Key: "Timestamp", Value: ntime},
 	})
@@ -517,8 +520,8 @@ func MembershipCardRequest(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	_, err = conn1.Query("insert into request_user_membership_card (request_uid, request_time, request_way, request_reason) value (?,?,?,?)",
-		reqData.Request_uid, ntime, reqData.Request_way, reqData.Request_reason)
+	_, err = conn1.Query("insert into request_user_membership_card (request_uid, request_time, request_way, request_reason, request_address) value (?,?,?,?,?)",
+		reqData.Request_uid, ntime, reqData.Request_way, reqData.Request_reason, reqData.Request_address)
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
@@ -541,7 +544,8 @@ func MembershipCardRequestList(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("select request_id, request_uid, request_time, request_way, request_reason, name, car_number, id from request_user_membership_card inner join user on request_uid = uid")
+	rows, err := conn1.Query("select request_id, request_uid, request_time, request_way, request_reason, request_address, name, car_number, id " +
+		"from request_user_membership_card inner join user on request_uid = uid")
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
@@ -566,6 +570,8 @@ func MembershipCardRequestSubmit(c *gin.Context) {
 		log.Fatal(err)
 		panic(err)
 	}
+	ntime := time.Now().Format(time.RFC3339)
+	ntime = ntime[:19]
 
 	reqData := MembershipCardRequestSubmitReq{}
 	err = c.Bind(&reqData)
@@ -580,11 +586,13 @@ func MembershipCardRequestSubmit(c *gin.Context) {
 	var reqBody struct {
 		ReqData              MembershipCardRequestSubmitReq `json:"reqData"`
 		MembershipCardNumber string                         `json:"membershipCardNumber"`
+		Timestamp            string                         `json:"timestamp"`
 	}
 	membershipCardNumber := getMembershipCardNumber(reqData.Request_uid)
 
 	reqBody.ReqData = reqData
 	reqBody.MembershipCardNumber = membershipCardNumber
+	reqBody.Timestamp = ntime
 	body, err := json.Marshal(reqBody)
 	if err != nil {
 		log.Println(err)
@@ -647,8 +655,6 @@ func MembershipCardRequestSubmit(c *gin.Context) {
 					// MongoDB logging
 					// "Request_value" : "waiting"/"permitted"/"reject"
 					request_value := reqData.Request_value
-					ntime := time.Now().Format(time.RFC3339)
-					ntime = ntime[:19]
 					client := database.NewMongodbConnection()
 					conn := client.Database("Admin_Service").Collection("request_membership_card")
 
@@ -656,6 +662,7 @@ func MembershipCardRequestSubmit(c *gin.Context) {
 						{Key: "Request_uid", Value: reqData.Request_uid},
 						{Key: "Request_way", Value: reqData.Request_way},
 						{Key: "Request_reason", Value: reqData.Request_reason},
+						{Key: "Request_address", Value: reqData.Request_address},
 						{Key: "Request_value", Value: request_value},
 						{Key: "Timestamp", Value: ntime},
 					})
