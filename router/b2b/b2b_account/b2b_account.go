@@ -60,8 +60,8 @@ func UserList(c *gin.Context) {
 	conn1 := database.NewMysqlConnection()
 	defer conn1.Close()
 
-	rows, err := conn1.Query("select cm.uid, cm.company_id, c.name, cm.id, cm.company_president, cm.company_certification_number, cm.company_type, " +
-		"cm.name from company_manager as cm inner join company as c on cm.company_id = c.company_id")
+	rows, err := conn1.Query("select cm.uid, cm.company_id, c.name as company_name, cm.id, cm.company_president, cm.company_certification_number, cm.company_certification_date, " +
+		"cm.company_type, cm.company_job_type, cm.name, cm.pay_type, cm.pay_company, cm.pay_card_number from company_manager as cm inner join company as c on cm.company_id = c.company_id")
 	if err != nil {
 		log.Println(err)
 		send_data.result = "false"
