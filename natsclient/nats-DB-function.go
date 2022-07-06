@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/Youn-sik/KSCONNECT_ADMIN/database"
-	v16 "github.com/aliml92/ocpp/v16"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -28,8 +27,8 @@ func UpdateMeterValue() {
 
 	rows, err := MysqlClient.Query("select station_id, device_number from charge_device where status = 'I'")
 	if err != nil {
-		log.Fatal(err)
-		panic(err)
+		log.Println(err)
+		return
 	} else {
 		MongoClient = database.NewMongodbConnection()
 		conn := MongoClient.Database("Admin_Service").Collection("ocpp_MeterValues")
@@ -61,31 +60,56 @@ func UpdateMeterValue() {
 				}
 			}
 		}
-
-		// update도 MongoDB logging ?
 		return
 	}
 }
 
-func MeterValuesReq(GmeterValueReq v16.MeterValuesReq) {
-	// meterValueReq := GmeterValueReq.MeterValue
+func ResetDeviceUsage() {
+	log.Println("---ResetDeviceUsageFunc---")
+	MysqlClient = database.NewMysqlConnection()
+	defer MysqlClient.Close()
 
-	// MongoDB meter logging
-	MongoClient = database.NewMongodbConnection()
-	conn := MongoClient.Database("Admin_Service").Collection("OCPP_meter")
-
-	result, err := conn.InsertOne(context.TODO(), bson.D{
-		// {Key: "chargePointId", Value: GmeterValueReq.ChargePointId},
-		// {Key: "connectorId", Value: meterValueReq.ConnectorId},
-		// {Key: "transactionId", Value: meterValueReq.TransactionId},
-		// {Key: "meterValue", Value: meterValueReq.MeterValue},
-	})
+	rows, err := MysqlClient.Query("select device_id, station_id, device_number, charge_device.usage from charge_device")
 	if err != nil {
 		log.Println(err)
-	} else {
-		log.Println(result)
+		return
 	}
+	MongoClient = database.NewMongodbConnection()
+	conn := MongoClient.Database("Admin_Service").Collection("service_device_usage_reset")
+	conn1 := database.NewMysqlConnection()
+	defer conn1.Close()
+	for rows.Next() {
+		var save_data struct {
+			Device_id     int
+			Station_id    int
+			Device_number int
+			Usage         int
+		}
+		err := rows.Scan(&save_data.Device_id, &save_data.Station_id, &save_data.Device_number, &save_data.Usage)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 
+		// Insert MongoDB Data
+		_, err = conn.InsertOne(context.TODO(), bson.D{
+			{Key: "Device_id", Value: save_data.Device_id},
+			{Key: "Station_id", Value: save_data.Station_id},
+			{Key: "Device_number", Value: save_data.Device_number},
+			{Key: "Usage", Value: save_data.Usage},
+		})
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		//Update MYSQL Data
+		log.Printf("%+v\n", save_data)
+		_, err = conn1.Query("update charge_device set charge_device.usage = 0 where device_id = ?", save_data.Device_id)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
+	log.Println("Month Reset Complete")
 }
-
-// RDB Charge Device 충전량 값 update(기존 값 + 현재 값) => stop transaction 때 (meterStop - meterStart) 만큼 작업하기

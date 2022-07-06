@@ -713,8 +713,9 @@ func main() {
 	// 1분마다 단말 status(사용 중) 값 판단해서 충전중인 단말 MongoDB에서 MeterValue polling 해서 RDB charge_device의 usage update
 	// _ = cr.AddFunc("1 * * * * *", n.UpdateMeterValue)
 	// _ = cr.AddFunc("*/10 * * * * *", n.UpdateMeterValue)
-	// 매달 RDB의 charge_device usage 0으로 초기화 시 MongoDB 에 저장 필요.
-	// cr.AddFunc("* * * * */1 *")
+	// 매달 1일 0시 0분 0초
+	cr.AddFunc("0 0 0 1 */1 *", n.ResetDeviceUsage)
+	// cr.AddFunc("*/10 * * * * *", n.ResetDeviceUsage)
 	cr.Start()
 
 	go ReplyNats("ocpp/v16/chargepoints")
