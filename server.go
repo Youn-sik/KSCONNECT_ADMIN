@@ -27,6 +27,7 @@ import (
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b/report"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/b2b/station"
 	"github.com/Youn-sik/KSCONNECT_ADMIN/router/user/user_account"
+	"github.com/Youn-sik/KSCONNECT_ADMIN/router/user/user_service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron"
@@ -144,7 +145,13 @@ func setupRouter() *gin.Engine {
 		user.Auth(c)
 	})
 	NAuth.POST("/alert_list", func(c *gin.Context) {
-		user_account.AlertList(c)
+		user_service.AlertList(c)
+	})
+	NAuth.POST("/check_charge_status", func(c *gin.Context) {
+		user_service.CheckChargeStatus(c)
+	})
+	NAuth.POST("/get_meter_value", func(c *gin.Context) {
+		user_service.GetMeterValue(c)
 	})
 
 	btb_service := router.Group("/btb_service")
@@ -481,7 +488,6 @@ func SubscribeNats(subject string) {
 						var elem bson.M
 						if err := cursor.Decode(&elem); err != nil {
 							log.Println(err)
-							wg.Done()
 						}
 						result, _ := json.Marshal(elem)
 						json.Unmarshal(result, &transaction)
@@ -705,7 +711,7 @@ func main() {
 
 	cr := cron.New()
 	// 1분마다 단말 status(사용 중) 값 판단해서 충전중인 단말 MongoDB에서 MeterValue polling 해서 RDB charge_device의 usage update
-	_ = cr.AddFunc("1 * * * * *", n.UpdateMeterValue)
+	// _ = cr.AddFunc("1 * * * * *", n.UpdateMeterValue)
 	// _ = cr.AddFunc("*/10 * * * * *", n.UpdateMeterValue)
 	// 매달 RDB의 charge_device usage 0으로 초기화 시 MongoDB 에 저장 필요.
 	// cr.AddFunc("* * * * */1 *")
