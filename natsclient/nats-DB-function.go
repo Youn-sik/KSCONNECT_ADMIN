@@ -40,11 +40,11 @@ func UpdateMeterValue() {
 				log.Println(err)
 			} else {
 				// Get MongoDB Data And MYSQL Update
-				fileter := bson.M{"$and": []bson.M{{"MeterValues.chargepointid": station_id}, {"MeterValues.payload.connectorid": device_number}}}
+				filter := bson.M{"$and": []bson.M{{"MeterValues.chargepointid": station_id}, {"MeterValues.payload.connectorid": device_number}}}
 				option := options.Find()
 				option.SetSort(bson.M{"Timestamp": -1})
 				option.SetLimit(1)
-				cursor, err := conn.Find(context.TODO(), fileter, option)
+				cursor, err := conn.Find(context.TODO(), filter, option)
 				if err != nil {
 					log.Println(err)
 				} else {
