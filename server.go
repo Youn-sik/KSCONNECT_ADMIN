@@ -18,6 +18,7 @@ import (
 	v16 "github.com/aliml92/ocpp/v16"
 	"github.com/bdwilliams/go-jsonify/jsonify"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	// "github.com/Youn-sik/KSCONNECT_ADMIN/natsclient"
 	n "github.com/Youn-sik/KSCONNECT_ADMIN/natsclient"
@@ -557,10 +558,38 @@ func SubscribeNats(subject string) {
 				body, _ := ioutil.ReadAll(resp.Body)
 				json.Unmarshal(body, &billingKey)
 
+				// Get Meter Values for Payment
+				conn = client.Database("Admin_Service").Collection("ocpp_MeterValues")
+				filter = bson.M{"MeterValues.payload.transactionid": transaction.Transaction.Transactionid}
+				options := options.Find()
+				options.SetSort(bson.M{"Timestamp": 1})
+				cursor, err = conn.Find(context.TODO(), filter)
+				if err != nil {
+					log.Println(err)
+					return
+				}
+				var interface_data []interface{}
+				for cursor.Next(context.TODO()) {
+					var elem bson.M
+					if err := cursor.Decode(&elem); err != nil {
+						log.Println(err)
+					}
+					interface_data = append(interface_data, elem)
+				}
+				// log.Printf("%+v\n", interface_data)
+
 				// User Service Payment Request(pay)
 				// getChargeFee
-				postBody, _ = json.Marshal(map[string]string{
-					"station_id": transaction.Transaction.Chargepointid,
+				var tmp struct {
+					Timestamp     string `json:"timestamp"`
+					TotMeterValue int    `json:"totMeterValue"`
+				}
+				tmp.Timestamp = transaction.StopTimestamp
+				tmp.TotMeterValue = transaction.Transaction.Payload.MeterStop - transaction.Transaction.Payload.Meterstart
+				postBody, _ = json.Marshal(map[string]interface{}{
+					"station_id":    transaction.Transaction.Chargepointid,
+					"meterValues":   interface_data,
+					"totMeterValue": tmp,
 				})
 				responseBody = bytes.NewBuffer(postBody)
 
@@ -577,7 +606,7 @@ func SubscribeNats(subject string) {
 				// 테스트에 0 값이여서 실데이터 넣으면 필수 파라메터 누락이라고 뜸
 				// orderID 값 랜덤 값으로
 				// 결제 값 소수점 들어가면 안됨 ..
-				amount := (price.Price * float32(transaction.Transaction.Payload.MeterStop-transaction.Transaction.Payload.Meterstart))
+				amount := price.Price
 				totamountStr := fmt.Sprintf("%f", amount)
 				amountStr1 := strings.Split(totamountStr, ".")[0]
 				amountStrArr := strings.Split(amountStr1, "")
@@ -588,9 +617,8 @@ func SubscribeNats(subject string) {
 				postBody, _ = json.Marshal(map[string]string{
 					"billingKey": billingKey.BillingKey,
 					"amount":     amountStr,
-					// "amount":    "1000.1",
-					"orderID":   string(orderId),
-					"orderName": "전기차 충전 요금 정산",
+					"orderID":    string(orderId),
+					"orderName":  "전기차 충전 요금 정산",
 				})
 				responseBody = bytes.NewBuffer(postBody)
 				resp, err = http.Post("http://"+config.User_service.Host+":"+config.User_service.Port+"/payment/pay", "application/json", responseBody)
