@@ -612,7 +612,7 @@ func SubscribeNats(subject string) {
 				amountStrArr := strings.Split(amountStr1, "")
 				amountStrArr[len(amountStrArr)-1] = "0"
 				amountStr := strings.Join(amountStrArr, "")
-				// log.Println("결제 금액: " + amountStr)
+				log.Println("결제 금액: " + amountStr)
 				orderId := randomString(8)
 				postBody, _ = json.Marshal(map[string]string{
 					"billingKey": billingKey.BillingKey,
@@ -639,6 +639,10 @@ func SubscribeNats(subject string) {
 				_, err = conn.InsertOne(context.TODO(), bson.D{
 					{Key: "Payment", Value: string(respBody)},
 					{Key: "User", Value: userInfo[0]},
+					{Key: "Station", Value: transaction.Transaction.Chargepointid},
+					{Key: "Device", Value: transaction.Transaction.Payload.Connectorid},
+					{Key: "Payment", Value: amountStr},
+					{Key: "Timestamp", Value: ntime},
 				})
 				if err != nil {
 					log.Println(err)
