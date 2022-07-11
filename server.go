@@ -223,6 +223,12 @@ func setupRouter() *gin.Engine {
 	btb_service.GET("/billing_list_company", func(c *gin.Context) {
 		report.ReportListCompany(c)
 	})
+	btb_service.POST("/billing_company_charge_status", func(c *gin.Context) {
+		report.ReportCompanyChargingStatus(c)
+	})
+	btb_service.POST("/billing_company_device_charge_status", func(c *gin.Context) {
+		report.ReportCompanyDeviceChargingStatus(c)
+	})
 
 	user_service := router.Group("/user_service")
 	user_service.Use(authenticateMiddleware)
