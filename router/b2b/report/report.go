@@ -74,28 +74,6 @@ func getCompanyList() CompanyList {
 	return companyList
 }
 
-// func getCompanyNameList() []string {
-// 	var comapany_names []string
-// 	conn1 := database.NewMysqlConnection()
-// 	defer conn1.Close()
-
-// 	rows, err := conn1.Query("select name from company order by company_id ASC")
-// 	if err != nil {
-// 		log.Println(err)
-// 	} else {
-// 		for rows.Next() {
-// 			var comapany_name string
-// 			err = rows.Scan(&comapany_name)
-// 			if err != nil {
-// 				log.Println(err)
-// 			} else {
-// 				comapany_names = append(comapany_names, comapany_name)
-// 			}
-// 		}
-// 	}
-// 	return comapany_names
-// }
-
 func getStationList(comapany_ids []int) []StationList {
 	resultStationList := []StationList{}
 	conn1 := database.NewMysqlConnection()
@@ -212,7 +190,16 @@ func getPayment(station_id, device_number int) int {
 	return totpayment
 }
 
-func ReportList(c *gin.Context) {
+func contains(s []int, e int) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+func ReportListCompany(c *gin.Context) {
 	var send_data struct {
 		result string
 		errStr string
@@ -296,14 +283,11 @@ func ReportList(c *gin.Context) {
 	send_data.result = "true"
 	send_data.errStr = ""
 	c.JSON(http.StatusOK, gin.H{"result": send_data.result, "errStr": send_data.errStr, "resultReport": resultReport})
-	return
 }
 
-func contains(s []int, e int) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
+// func ReportListStation(c *gin.Context) {
+// 	var send_data struct {
+// 		result string
+// 		errStr string
+// 	}
+// }

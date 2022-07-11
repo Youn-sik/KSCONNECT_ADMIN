@@ -221,7 +221,7 @@ func setupRouter() *gin.Engine {
 	})
 
 	btb_service.GET("/billing_list_company", func(c *gin.Context) {
-		report.ReportList(c)
+		report.ReportListCompany(c)
 	})
 
 	user_service := router.Group("/user_service")
